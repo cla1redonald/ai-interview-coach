@@ -1,0 +1,9 @@
+{
+  "company": "Acme Corp",
+  "role": "VP Product",
+  "branding": {
+    "primaryColor": "blue",
+    "companyUrl": ""
+  },
+  "personas": []
+}
