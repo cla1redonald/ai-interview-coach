@@ -112,11 +112,11 @@ Specificity is everything. "Cares about outcomes" is useless. "Tracks 90-day ret
 
 ## How I Built This
 
-This started as a tool for my own interview preparation. I had a series of executive interviews coming up and wanted to practice with something more realistic than a friend playing a generic interviewer. The insight was that the quality of interview practice is almost entirely determined by how accurately the "interviewer" reflects the real person's priorities, values, and communication style.
+The insight behind this tool is that the quality of interview practice is almost entirely determined by how accurately the "interviewer" reflects the real person's priorities, values, and communication style. Generic mock interviews produce generic preparation. Persona-specific practice produces calibrated answers.
 
-I spent time researching each interviewer -- reading their LinkedIn posts, watching conference talks, reading company announcements they had authored. Then I distilled that into structured persona profiles: their strategic priorities, the things that would make them cautious about a candidate (red flags), and the things that would make them genuinely excited (green flags). Feeding those profiles to Claude as a system prompt produced remarkably realistic interview simulations.
+The persona creation process uses an AI research swarm approach: given a company and role, the system researches each interviewer — LinkedIn profiles, conference talks, company announcements, annual reports — and distils that into structured persona profiles covering strategic priorities, red flags (what makes them cautious about a candidate), and green flags (what genuinely excites them). Those profiles become system prompts that produce remarkably realistic interview simulations.
 
-The genericised version here strips all the company-specific content and replaces it with example personas you can use as templates. The core architecture is the same: a persona markdown file shapes the system prompt, the AI stays in character during practice mode, and switches to coach mode when you ask for feedback. The feedback mode is where the real value is -- it references the specific red flags and green flags from the persona profile, so the coaching is always grounded in what that specific interviewer cares about.
+The two-mode architecture separates practice from coaching. In practice mode, the AI stays in character and challenges you based on the persona's known priorities. In feedback mode, it switches to coach and references the specific red flags and green flags from the persona profile, so the coaching is always grounded in what that specific interviewer cares about — not generic advice.
 
 ---
 
