@@ -2,7 +2,7 @@
 
 Generate realistic interviewer personas and practice with AI-powered conversations.
 
-> **Screenshot placeholder** — add a screenshot of the app here after your first run.
+![AI Interview Coach](public/screenshot.png)
 
 ---
 
