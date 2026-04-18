@@ -73,7 +73,8 @@ async function fetchWithRetry(inputs: string[]): Promise<number[][]> {
  */
 export async function generateEmbedding(
   text: string,
-  _inputType: 'document' | 'query' = 'document'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inputType: 'document' | 'query' = 'document'
 ): Promise<number[]> {
   const results = await fetchWithRetry([text]);
   return results[0];
@@ -85,7 +86,8 @@ export async function generateEmbedding(
  */
 export async function generateBatchEmbeddings(
   texts: string[],
-  _inputType: 'document' | 'query' = 'document',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inputType: 'document' | 'query' = 'document',
   batchSize: number = 8
 ): Promise<number[][]> {
   if (texts.length === 0) return [];
