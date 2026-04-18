@@ -2,6 +2,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { generateEmbedding, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
+import { upsertExampleVector, deleteExampleVector } from '@/lib/vector/upstash';
 
 const VALID_QUALITY_RATINGS = ['strong', 'weak', 'neutral'] as const;
 type QualityRating = typeof VALID_QUALITY_RATINGS[number];
@@ -99,6 +101,17 @@ export async function PATCH(
       .innerJoin(tags, eq(exampleTags.tagId, tags.id))
       .where(eq(exampleTags.exampleId, params.id));
 
+    // Regenerate embedding async if question or answer changed — do not await
+    const questionChanged = typeof b.question === 'string' && b.question.trim();
+    const answerChanged = typeof b.answer === 'string' && b.answer.trim();
+    if (questionChanged || answerChanged) {
+      const newQuestion = (updates.question ?? example.question) as string;
+      const newAnswer = (updates.answer ?? example.answer) as string;
+      generateEmbedding(formatExampleForEmbedding(newQuestion, newAnswer), 'document')
+        .then(embedding => upsertExampleVector(params.id, userId, embedding))
+        .catch(err => console.error('Async embedding update error:', err));
+    }
+
     return Response.json({
       example: {
         ...updated,
@@ -141,6 +154,10 @@ export async function DELETE(
 
   try {
     await db.delete(examples).where(eq(examples.id, params.id));
+    // Delete vector — synchronous, best-effort
+    await deleteExampleVector(params.id).catch(err =>
+      console.error('Vector delete error (non-fatal):', err)
+    );
     return new Response(null, { status: 204 });
   } catch (err) {
     console.error('DELETE /api/examples/[id] error:', err);

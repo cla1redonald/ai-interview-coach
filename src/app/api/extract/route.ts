@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { transcripts, examples, tags, exampleTags, consistencyEntries } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
+import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
+import { upsertExampleVector } from '@/lib/vector/upstash';
 import {
   EXTRACTION_PASS1_SYSTEM,
   EXTRACTION_PASS1_SCHEMA,
@@ -343,6 +345,28 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Database persist error:', err);
     return Response.json({ error: 'Failed to save extracted pairs' }, { status: 500 });
+  }
+
+  // ─── Generate embeddings and upsert to Upstash Vector ────────────────────
+  // Synchronous — extraction is already slow, adding embeddings is acceptable.
+
+  try {
+    const embeddingInputs = insertedExamples.map(({ index }) => {
+      const pair = rawPairs[index];
+      return formatExampleForEmbedding(pair.question, pair.answer);
+    });
+
+    if (embeddingInputs.length > 0) {
+      const embeddings = await generateBatchEmbeddings(embeddingInputs, 'document');
+      await Promise.all(
+        insertedExamples.map(({ id: exampleId }, i) =>
+          upsertExampleVector(exampleId, userId, embeddings[i])
+        )
+      );
+    }
+  } catch (err) {
+    // Non-fatal — examples are in DB; backfill endpoint can recover missing vectors
+    console.error('Embedding generation error (non-fatal):', err);
   }
 
   // ─── Build response ───────────────────────────────────────────────────────
