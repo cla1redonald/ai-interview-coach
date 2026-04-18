@@ -165,3 +165,13 @@ The 5 P0s (encryption not decrypting on read paths, unencrypted write-back, idem
 Total estimated prevention effort: 20 minutes. Total review-and-fix effort after the fact: 2+ hours across 3 review agents and the subsequent fix session.
 
 **The cheapest time to find a bug is before you declare the build done.**
+
+---
+
+## The Uncomfortable Truth
+
+Phase 1 retro already identified "cross-cutting module not wired in" as a known pattern. The knowledge existed but wasn't applied as a checklist.
+
+**Key takeaway:** After every service swap, run `grep -r "OLD_SERVICE"` across all file types. The 5 P0s would have been caught with ~20 minutes of sweep work. The fix cycle after the fact took 2+ hours.
+
+The retro also graduated two new patterns to `memory/shared/common-mistakes.md` and updated reviewer + orchestrator agent knowledge so these get caught automatically in future sessions.
