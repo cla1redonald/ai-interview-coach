@@ -6,6 +6,7 @@ import { transcripts, examples, exampleTags, tags } from '@/lib/db/schema';
 import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 import { ChevronLeft } from 'lucide-react';
 import { ReviewPanel } from '@/components/storybank/ReviewPanel';
+import { EnrichTrigger } from '@/components/storybank/EnrichTrigger';
 
 export default async function ReviewPage({
   params,
@@ -114,8 +115,11 @@ export default async function ReviewPage({
             </p>
           )}
         </div>
-        <div className="text-sm" style={{ color: 'var(--sage)' }}>
-          {enrichedExamples.length} pair{enrichedExamples.length !== 1 ? 's' : ''} extracted
+        <div className="flex items-center gap-3">
+          <EnrichTrigger transcriptId={params.id} />
+          <div className="text-sm" style={{ color: 'var(--sage)' }}>
+            {enrichedExamples.length} pair{enrichedExamples.length !== 1 ? 's' : ''} extracted
+          </div>
         </div>
       </div>
 
