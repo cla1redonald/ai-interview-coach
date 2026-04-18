@@ -1,7 +1,8 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, or, isNull } from 'drizzle-orm';
+import { decryptExampleFields, isEncryptionEnabled, encrypt, serialise } from '@/lib/encryption';
 import { generateEmbedding, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
 import { upsertExampleVector, deleteExampleVector } from '@/lib/vector/upstash';
 
@@ -74,13 +75,35 @@ export async function PATCH(
     // Handle tag replacement if tagIds provided
     if (Array.isArray(b.tagIds)) {
       const tagIds = (b.tagIds as unknown[]).filter((id): id is string => typeof id === 'string');
-      // Delete existing tags
-      await db.delete(exampleTags).where(eq(exampleTags.exampleId, params.id));
-      // Insert new tags
+
+      // Verify tag ownership — only allow system tags or user's own tags
       if (tagIds.length > 0) {
-        await db.insert(exampleTags).values(
-          tagIds.map(tagId => ({ exampleId: params.id, tagId }))
-        );
+        const validTags = await db.select({ id: tags.id }).from(tags)
+          .where(and(
+            inArray(tags.id, tagIds),
+            or(isNull(tags.userId), eq(tags.userId, userId))
+          ));
+        const validTagIds = new Set(validTags.map(t => t.id));
+        const filteredTagIds = tagIds.filter(id => validTagIds.has(id));
+
+        await db.delete(exampleTags).where(eq(exampleTags.exampleId, params.id));
+        if (filteredTagIds.length > 0) {
+          await db.insert(exampleTags).values(
+            filteredTagIds.map(tagId => ({ exampleId: params.id, tagId }))
+          );
+        }
+      } else {
+        await db.delete(exampleTags).where(eq(exampleTags.exampleId, params.id));
+      }
+    }
+
+    // Encrypt question/answer before update if encryption is enabled
+    if (isEncryptionEnabled()) {
+      if (updates.question !== undefined) {
+        updates.question = serialise(encrypt(updates.question as string));
+      }
+      if (updates.answer !== undefined) {
+        updates.answer = serialise(encrypt(updates.answer as string));
       }
     }
 
@@ -101,20 +124,27 @@ export async function PATCH(
       .innerJoin(tags, eq(exampleTags.tagId, tags.id))
       .where(eq(exampleTags.exampleId, params.id));
 
+    // Decrypt for embedding and response — use plaintext from request body (not encrypted DB values)
+    const plainQuestion = typeof b.question === 'string' && b.question.trim() ? b.question.trim() : null;
+    const plainAnswer = typeof b.answer === 'string' && b.answer.trim() ? b.answer.trim() : null;
+
     // Regenerate embedding async if question or answer changed — do not await
-    const questionChanged = typeof b.question === 'string' && b.question.trim();
-    const answerChanged = typeof b.answer === 'string' && b.answer.trim();
-    if (questionChanged || answerChanged) {
-      const newQuestion = (updates.question ?? example.question) as string;
-      const newAnswer = (updates.answer ?? example.answer) as string;
-      generateEmbedding(formatExampleForEmbedding(newQuestion, newAnswer), 'document')
+    if (plainQuestion || plainAnswer) {
+      const embeddingQuestion = plainQuestion ?? example.question;
+      const embeddingAnswer = plainAnswer ?? example.answer;
+      generateEmbedding(formatExampleForEmbedding(embeddingQuestion, embeddingAnswer), 'document')
         .then(embedding => upsertExampleVector(params.id, userId, embedding))
         .catch(err => console.error('Async embedding update error:', err));
     }
 
+    // Decrypt returned row before sending to client
+    const decryptedUpdated = isEncryptionEnabled()
+      ? { ...updated, ...decryptExampleFields({ question: updated.question, answer: updated.answer }) }
+      : updated;
+
     return Response.json({
       example: {
-        ...updated,
+        ...decryptedUpdated,
         tags: tagJoins.map(tj => ({
           id: tj.tagId,
           name: tj.name,

@@ -3,9 +3,10 @@ import { generateText, jsonSchema, tool } from 'ai';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 import { generateEmbedding } from '@/lib/embeddings/voyage';
 import { queryUserVectors } from '@/lib/vector/upstash';
+import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import {
   MATCHING_SYSTEM,
   buildExplanationUserMessage,
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
   const exampleRows = await db
     .select()
     .from(examples)
-    .where(inArray(examples.id, matchIds));
+    .where(and(inArray(examples.id, matchIds), eq(examples.userId, userId)));
 
   // Also fetch tags for matched examples
   const tagJoins = await db
@@ -150,9 +151,14 @@ export async function POST(request: Request) {
   }
 
   // Sort examples by score descending (Upstash may not return in order)
-  const sortedExamples = exampleRows.sort(
-    (a, b) => (scoreById.get(b.id) ?? 0) - (scoreById.get(a.id) ?? 0)
-  );
+  // Decrypt fields if encryption is enabled
+  const sortedExamples = exampleRows
+    .sort((a, b) => (scoreById.get(b.id) ?? 0) - (scoreById.get(a.id) ?? 0))
+    .map(e =>
+      isEncryptionEnabled()
+        ? { ...e, ...decryptExampleFields({ question: e.question, answer: e.answer }) }
+        : e
+    );
 
   // 4. Run gap analysis + get job spec summary (Claude)
   let jobSpecSummary = '';

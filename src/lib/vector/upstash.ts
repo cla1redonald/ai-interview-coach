@@ -26,6 +26,13 @@ export async function upsertExampleVector(
   });
 }
 
+function validateUserId(userId: string): void {
+  // cuid2 IDs are alphanumeric lowercase, 20-32 chars
+  if (!/^[a-z0-9]{20,32}$/.test(userId)) {
+    throw new Error('Invalid userId format');
+  }
+}
+
 /**
  * Query Upstash Vector for similar examples owned by a specific user.
  */
@@ -35,6 +42,7 @@ export async function queryUserVectors(
   topK: number = 10,
   scoreThreshold: number = 0.5
 ): Promise<{ id: string; score: number }[]> {
+  validateUserId(userId);
   const index = getVectorIndex();
   const results = await index.query({
     vector: queryEmbedding,

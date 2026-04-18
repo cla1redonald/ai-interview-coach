@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags, transcripts } from '@/lib/db/schema';
 import { eq, and, like, desc, inArray, or, isNull } from 'drizzle-orm';
+import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 
 // GET /api/examples — list user's examples with optional filtering + joined tags
 export async function GET(request: Request) {
@@ -134,10 +135,16 @@ export async function GET(request: Request) {
       }
     }
 
-    const final = enriched.map(r => ({
-      ...r,
-      company: r.transcriptId ? (transcriptMap.get(r.transcriptId)?.company ?? null) : null,
-    }));
+    const final = enriched.map(r => {
+      const decrypted = isEncryptionEnabled()
+        ? decryptExampleFields({ question: r.question, answer: r.answer })
+        : { question: r.question, answer: r.answer };
+      return {
+        ...r,
+        ...decrypted,
+        company: r.transcriptId ? (transcriptMap.get(r.transcriptId)?.company ?? null) : null,
+      };
+    });
 
     return Response.json({ examples: final, total });
   } catch (err) {

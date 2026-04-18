@@ -38,14 +38,14 @@ export interface EncryptedExampleFields {
 // ─── Key derivation ───────────────────────────────────────────────────────────
 
 /**
- * Derives a 32-byte AES key from the ENCRYPTION_KEY or AUTH_SECRET env var.
- * Throws if neither is set — encryption cannot proceed without a key.
+ * Derives a 32-byte AES key from the ENCRYPTION_KEY env var.
+ * Throws if not set — encryption cannot proceed without a key.
  */
 function getDerivedKey(): Buffer {
-  const raw = process.env.ENCRYPTION_KEY ?? process.env.AUTH_SECRET;
+  const raw = process.env.ENCRYPTION_KEY;
   if (!raw) {
     throw new Error(
-      'Encryption key not configured. Set ENCRYPTION_KEY (or AUTH_SECRET as fallback) in environment variables.'
+      'Encryption key not configured. Set ENCRYPTION_KEY in environment variables.'
     );
   }
   // SHA-256 of the raw secret → deterministic 32-byte key
@@ -177,11 +177,11 @@ export function decryptExampleFields(fields: {
 // ─── Encryption guard ─────────────────────────────────────────────────────────
 
 /**
- * Returns true if encryption is configured (ENCRYPTION_KEY or AUTH_SECRET set).
+ * Returns true if encryption is configured (ENCRYPTION_KEY set).
  * When false, callers should skip encrypt/decrypt and use plaintext as-is.
  *
  * Phase 1 uses plaintext; opt into encryption by setting ENCRYPTION_KEY.
  */
 export function isEncryptionEnabled(): boolean {
-  return !!(process.env.ENCRYPTION_KEY ?? process.env.AUTH_SECRET);
+  return !!process.env.ENCRYPTION_KEY;
 }

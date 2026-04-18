@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { transcripts, examples, tags, exampleTags, consistencyEntries } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
+import { decryptTranscriptFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
 import { upsertExampleVector } from '@/lib/vector/upstash';
 import {
@@ -148,8 +149,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
+  // Decrypt rawText if encryption is enabled
+  const decryptedTranscript = isEncryptionEnabled()
+    ? { ...transcript, ...decryptTranscriptFields({ rawText: transcript.rawText }) }
+    : transcript;
+
   // Check if already extracted
-  if (transcript.extractedAt && !force) {
+  if (decryptedTranscript.extractedAt && !force) {
     return Response.json(
       { error: 'Transcript already extracted. Pass force: true to re-extract.' },
       { status: 409 }
@@ -170,7 +176,7 @@ export async function POST(request: Request) {
   const tagByName = new Map(allTags.map(t => [t.name.toLowerCase(), t.id]));
 
   // Prepend line numbers
-  const numberedTranscript = prependLineNumbers(transcript.rawText);
+  const numberedTranscript = prependLineNumbers(decryptedTranscript.rawText);
 
   // ─── Pass 1: Extract Q&A pairs ────────────────────────────────────────────
 
@@ -268,7 +274,7 @@ export async function POST(request: Request) {
   try {
     const consistency = await callWithTool<ConsistencyResult>(
       CONSISTENCY_SYSTEM,
-      buildConsistencyUserMessage(pairsForConsistency, transcript.company ?? null),
+      buildConsistencyUserMessage(pairsForConsistency, decryptedTranscript.company ?? null),
       CONSISTENCY_SCHEMA
     );
     consistencyResults = consistency.results ?? [];
@@ -298,12 +304,16 @@ export async function POST(request: Request) {
         end_line: pair.source_end_line,
       });
 
+      const encryptedExampleFields = isEncryptionEnabled()
+        ? encryptExampleFields({ question: pair.question, answer: pair.answer })
+        : { question: pair.question, answer: pair.answer };
+
       const [inserted] = await db.insert(examples)
         .values({
           userId,
           transcriptId,
-          question: pair.question,
-          answer: pair.answer,
+          question: encryptedExampleFields.question,
+          answer: encryptedExampleFields.answer,
           sourcePosition,
           updatedAt: now,
         })
@@ -330,10 +340,10 @@ export async function POST(request: Request) {
         await db.insert(consistencyEntries).values({
           userId,
           exampleId,
-          company: transcript.company ?? 'Unknown',
+          company: decryptedTranscript.company ?? 'Unknown',
           topic: claim.topic,
           claim: claim.claim,
-          interviewDate: transcript.interviewDate ?? null,
+          interviewDate: decryptedTranscript.interviewDate ?? null,
         });
       }
     }
@@ -341,7 +351,7 @@ export async function POST(request: Request) {
     // Mark transcript as extracted
     await db.update(transcripts)
       .set({ extractedAt: now, updatedAt: now })
-      .where(eq(transcripts.id, transcriptId));
+      .where(and(eq(transcripts.id, transcriptId), eq(transcripts.userId, userId)));
   } catch (err) {
     console.error('Database persist error:', err);
     return Response.json({ error: 'Failed to save extracted pairs' }, { status: 500 });

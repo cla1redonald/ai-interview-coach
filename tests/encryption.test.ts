@@ -93,27 +93,22 @@ describe('key derivation', () => {
     expect(() => encrypt('test')).toThrow('Encryption key not configured');
   });
 
-  it('uses AUTH_SECRET as fallback when ENCRYPTION_KEY is absent', () => {
+  it('throws when ENCRYPTION_KEY is absent (even if AUTH_SECRET is set)', () => {
     delete process.env.ENCRYPTION_KEY;
     process.env.AUTH_SECRET = 'fallback-secret-for-auth-32chars!!';
-    const enc = encrypt('test');
-    expect(decrypt(enc)).toBe('test');
+    expect(() => encrypt('test')).toThrow('Encryption key not configured');
   });
 
-  it('AUTH_SECRET and ENCRYPTION_KEY produce different ciphertexts for same input', () => {
+  it('different ENCRYPTION_KEY values produce independently encrypted ciphertexts', () => {
     process.env.ENCRYPTION_KEY = 'key-a-32chars-padding-here-xxxxxx';
     const enc1 = encrypt('same input');
-    const ct1 = enc1.ciphertext;
 
-    delete process.env.ENCRYPTION_KEY;
-    process.env.AUTH_SECRET = 'key-b-32chars-padding-here-xxxxxx';
+    process.env.ENCRYPTION_KEY = 'key-b-32chars-padding-here-xxxxxx';
     const enc2 = encrypt('same input');
 
-    // Different keys → different ciphertexts (IVs are also random, but the
-    // point is they are independently encrypted)
-    // Can't guarantee ct differs purely due to IVs, so just verify decrypt works
+    // Each is valid under its own key
     expect(decrypt(enc2)).toBe('same input');
-    expect(ct1).toBeDefined();
+    expect(enc1.ciphertext).toBeDefined();
   });
 
   it('wrong key fails decryption (auth tag mismatch)', () => {
@@ -227,10 +222,10 @@ describe('isEncryptionEnabled', () => {
     expect(isEncryptionEnabled()).toBe(true);
   });
 
-  it('returns true when AUTH_SECRET is set', () => {
+  it('returns false when only AUTH_SECRET is set (no longer a fallback)', () => {
     delete process.env.ENCRYPTION_KEY;
     process.env.AUTH_SECRET = 'some-secret';
-    expect(isEncryptionEnabled()).toBe(true);
+    expect(isEncryptionEnabled()).toBe(false);
   });
 
   it('returns false when neither key is set', () => {
