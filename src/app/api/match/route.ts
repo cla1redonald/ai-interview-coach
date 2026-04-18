@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
 import { eq, inArray, and } from 'drizzle-orm';
-import { generateEmbedding } from '@/lib/embeddings/voyage';
+import { generateEmbedding } from '@/lib/embeddings/openai';
 import { queryUserVectors } from '@/lib/vector/upstash';
 import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import {
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
   try {
     queryEmbedding = await generateEmbedding(jobSpec, 'query');
   } catch (err) {
-    console.error('Voyage AI embedding error:', err);
+    console.error('OpenAI embedding error:', err);
     return Response.json({ error: 'Failed to generate job spec embedding' }, { status: 500 });
   }
 

@@ -5,7 +5,7 @@ import { db } from '@/lib/db/index';
 import { transcripts, examples, tags, exampleTags, consistencyEntries } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { decryptTranscriptFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
-import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
+import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/openai';
 import { upsertExampleVector } from '@/lib/vector/upstash';
 import {
   EXTRACTION_PASS1_SYSTEM,

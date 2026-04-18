@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
+import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/openai';
 import { upsertExampleVector, fetchExistingVectorIds } from '@/lib/vector/upstash';
 
 export const runtime = 'nodejs';

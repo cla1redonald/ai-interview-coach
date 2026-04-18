@@ -3,7 +3,7 @@ import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
 import { eq, and, inArray, or, isNull } from 'drizzle-orm';
 import { decryptExampleFields, isEncryptionEnabled, encrypt, serialise } from '@/lib/encryption';
-import { generateEmbedding, formatExampleForEmbedding } from '@/lib/embeddings/voyage';
+import { generateEmbedding, formatExampleForEmbedding } from '@/lib/embeddings/openai';
 import { upsertExampleVector, deleteExampleVector } from '@/lib/vector/upstash';
 
 const VALID_QUALITY_RATINGS = ['strong', 'weak', 'neutral'] as const;
