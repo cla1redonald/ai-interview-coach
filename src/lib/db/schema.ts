@@ -60,6 +60,7 @@ export const transcripts = sqliteTable('transcripts', {
   interviewDate:   text('interview_date'),    // "YYYY-MM-DD"
   interviewRound:  text('interview_round'),   // 'screening'|'first'|'second'|'final'|'other'
   extractedAt:     text('extracted_at'),      // null = not yet extracted; ISO datetime when set
+  enrichedAt:      text('enriched_at'),      // null = not yet enriched; ISO datetime when set
   createdAt:       now('created_at'),
   updatedAt:       text('updated_at').$defaultFn(() => new Date().toISOString()),
 });

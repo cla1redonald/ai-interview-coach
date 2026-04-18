@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 
 const BREAKDOWN_SYSTEM_PROMPT = `You are a structured interview coach. Break the given interview answer into STAR+Reflection format.
 
@@ -48,9 +49,13 @@ export async function POST(
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const userMessage = `Question: ${example.question}
+  const decrypted = isEncryptionEnabled()
+    ? { ...example, ...decryptExampleFields({ question: example.question, answer: example.answer }) }
+    : example;
 
-Answer: ${example.answer}
+  const userMessage = `Question: ${decrypted.question}
+
+Answer: ${decrypted.answer}
 
 Break this answer into STAR+Reflection format.`;
 

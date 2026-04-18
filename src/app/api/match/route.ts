@@ -1,5 +1,3 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, jsonSchema, tool } from 'ai';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags } from '@/lib/db/schema';
@@ -7,6 +5,7 @@ import { eq, inArray, and } from 'drizzle-orm';
 import { generateEmbedding } from '@/lib/embeddings/openai';
 import { queryUserVectors } from '@/lib/vector/upstash';
 import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { callWithTool } from '@/lib/ai/call-with-tool';
 import {
   MATCHING_SYSTEM,
   buildExplanationUserMessage,
@@ -19,39 +18,9 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const MODEL = 'claude-sonnet-4-5-20250929';
 const DEFAULT_MATCH_COUNT = 5;
 const MAX_MATCH_COUNT = 20;
 const DEFAULT_THRESHOLD = 0.5;
-
-// ─── Helper: call Claude with a tool ─────────────────────────────────────────
-
-async function callWithTool<T>(
-  systemPrompt: string,
-  userMessage: string,
-  toolDef: { name: string; description: string; parameters: object }
-): Promise<T> {
-  const toolInstance = tool({
-    description: toolDef.description,
-    inputSchema: jsonSchema(toolDef.parameters as Parameters<typeof jsonSchema>[0]),
-  });
-
-  const result = await generateText({
-    model: anthropic(MODEL),
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-    tools: { [toolDef.name]: toolInstance },
-    toolChoice: { type: 'tool', toolName: toolDef.name },
-    maxOutputTokens: 4000,
-  });
-
-  const toolCall = result.toolCalls.find(tc => tc.toolName === toolDef.name);
-  if (!toolCall) {
-    throw new Error(`Claude did not call the ${toolDef.name} tool`);
-  }
-  const callAsAny = toolCall as unknown as { input?: T; args?: T };
-  return (callAsAny.input ?? callAsAny.args) as T;
-}
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
@@ -86,7 +55,7 @@ export async function POST(request: Request) {
   // 1. Generate embedding for job spec (input_type: 'query')
   let queryEmbedding: number[];
   try {
-    queryEmbedding = await generateEmbedding(jobSpec, 'query');
+    queryEmbedding = await generateEmbedding(jobSpec);
   } catch (err) {
     console.error('OpenAI embedding error:', err);
     return Response.json({ error: 'Failed to generate job spec embedding' }, { status: 500 });

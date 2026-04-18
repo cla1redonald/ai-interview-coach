@@ -132,7 +132,7 @@ export async function PATCH(
     if (plainQuestion || plainAnswer) {
       const embeddingQuestion = plainQuestion ?? example.question;
       const embeddingAnswer = plainAnswer ?? example.answer;
-      generateEmbedding(formatExampleForEmbedding(embeddingQuestion, embeddingAnswer), 'document')
+      generateEmbedding(formatExampleForEmbedding(embeddingQuestion, embeddingAnswer))
         .then(embedding => upsertExampleVector(params.id, userId, embedding))
         .catch(err => console.error('Async embedding update error:', err));
     }

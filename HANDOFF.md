@@ -24,12 +24,12 @@ Built StoryBank Phase 1 (Example Bank) end-to-end using `/orchestrate` with Agen
 | Feature | Status |
 |---------|--------|
 | Turso DB + Drizzle schema | Done |
-| Auth.js magic link login | Done |
+| Auth.js Google OAuth login | Done |
 | Transcript upload (paste/file) | Done |
 | Two-pass AI extraction + auto-tagging | Done |
 | AES-256-GCM encryption (opt-in via ENCRYPTION_KEY) | Done |
 | Example Bank UI (filters, STAR, quality rating) | Done |
-| Voyage AI embeddings + Upstash Vector | Done |
+| OpenAI text-embedding-3-small + Upstash Vector | Done |
 | Job spec matching + gap analysis | Done |
 | Mirror Effect (4-panel analysis) | Done |
 | Consistency Tracker (contradiction detection) | Done |
@@ -44,9 +44,9 @@ Built StoryBank Phase 1 (Example Bank) end-to-end using `/orchestrate` with Agen
 - **Privacy:** `docs/PRIVACY.md` (encryption approach)
 - **Retro:** `RETRO-phase1.md` (learnings + recommendations)
 - **Schema:** `src/lib/db/schema.ts` (Drizzle + Turso)
-- **Auth:** `src/lib/auth.ts` (Auth.js v5 magic link)
+- **Auth:** `src/lib/auth.ts` (Auth.js v5 Google OAuth)
 - **Encryption:** `src/lib/encryption/index.ts` (AES-256-GCM)
-- **Embeddings:** `src/lib/embeddings/voyage.ts` + `src/lib/vector/upstash.ts`
+- **Embeddings:** `src/lib/embeddings/openai.ts` + `src/lib/vector/upstash.ts`
 - **Prompts:** `src/lib/prompts/` (extraction, tagging, consistency, matching)
 - **PRD:** `~/claudesidian/01_Projects/Next_Chapter/Ideas/interview-coach-PRD.md`
 - **Threads:** `~/claudesidian/01_Projects/Next_Chapter/Ideas/storybank-phase1-threads.md`
@@ -73,13 +73,13 @@ Built StoryBank Phase 1 (Example Bank) end-to-end using `/orchestrate` with Agen
 ## Open Issues
 
 - **Not deployed yet** — Issue #1 has the full deploy checklist
-- **Env vars needed:** Turso DB, Upstash Vector index (1024 dims, cosine), Resend API key, Voyage AI key, Anthropic key, NEXTAUTH_SECRET, ENCRYPTION_KEY (optional)
+- **Env vars needed:** Turso DB, Upstash Vector index (1024 dims, cosine), Google OAuth credentials, OpenAI API key, Anthropic key, NEXTAUTH_SECRET, ENCRYPTION_KEY (optional)
 - **No real transcript testing yet** — extraction pipeline untested against real data
 - **In-memory rate limiter** won't survive Vercel serverless restarts (Issue #3)
 
 ## Stack
 
-Next.js 14 App Router · TypeScript · Turso (SQLite) + Drizzle ORM · Auth.js v5 (magic link via Resend) · Upstash Vector · Voyage AI · Anthropic API · AES-256-GCM encryption · Tailwind CSS · Deep Tay palette
+Next.js 14 App Router · TypeScript · Turso (SQLite) + Drizzle ORM · Auth.js v5 (Google OAuth) · Upstash Vector · OpenAI (text-embedding-3-small) · Anthropic API · AES-256-GCM encryption · Tailwind CSS · Deep Tay palette
 
 ---
 
@@ -93,7 +93,7 @@ Phase 1 (Example Bank) is code-complete but NOT deployed. Read HANDOFF.md for fu
 Next step: Deploy to Vercel (GitHub Issue #1). This requires:
 1. Create Turso database + get credentials
 2. Create Upstash Vector index (1024 dims, cosine metric)
-3. Get API keys (Resend, Voyage AI — I already have Anthropic)
+3. Get API keys (Google OAuth credentials, OpenAI — I already have Anthropic)
 4. Set up Vercel project with env vars
 5. Run db:migrate against production Turso
 6. Smoke test the full flow with real transcript data

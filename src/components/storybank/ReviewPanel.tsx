@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Trash2, Tag, X, ThumbsUp, Minus, ThumbsDown, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
+import { Trash2, Tag, X, ThumbsUp, Minus, ThumbsDown, AlertTriangle, Plus } from 'lucide-react';
 
 interface TagData {
   id: string;
@@ -116,6 +116,7 @@ function ExampleCard({
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourcePos = parseSourcePosition(example.sourcePosition);
@@ -360,10 +361,20 @@ function ExampleCard({
           )}
           <button
             type="button"
-            onClick={() => onDelete(example.id)}
-            className="p-1.5 rounded hover:opacity-70 transition-opacity"
-            style={{ color: 'var(--quality-weak)' }}
-            aria-label="Delete this Q&A pair"
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                setTimeout(() => setConfirmDelete(false), 3000);
+                return;
+              }
+              onDelete(example.id);
+            }}
+            className="p-1.5 rounded transition-all"
+            style={{
+              color: confirmDelete ? '#fff' : 'var(--quality-weak)',
+              background: confirmDelete ? 'var(--quality-weak)' : 'transparent',
+            }}
+            aria-label={confirmDelete ? 'Confirm delete' : 'Delete this Q&A pair'}
           >
             <Trash2 size={14} strokeWidth={1.5} />
           </button>
@@ -381,7 +392,6 @@ export function ReviewPanel({
 }: ReviewPanelProps) {
   const [exampleList, setExampleList] = useState<ExampleData[]>(initialExamples);
   const [hoveredPos, setHoveredPos] = useState<SourcePosition | null>(null);
-  const [allApproved, setAllApproved] = useState(false);
 
   const highlightedLines = hoveredPos
     ? new Set(
@@ -501,26 +511,6 @@ export function ReviewPanel({
           <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--sage)' }}>
             {exampleList.length} pair{exampleList.length !== 1 ? 's' : ''} extracted
           </span>
-          {!allApproved && exampleList.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setAllApproved(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-opacity hover:opacity-80"
-              style={{ background: 'var(--amber)', color: '#111a24' }}
-            >
-              <CheckCircle2 size={13} strokeWidth={2} />
-              Approve All
-            </button>
-          )}
-          {allApproved && (
-            <span
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded"
-              style={{ background: 'rgba(90, 114, 71, 0.18)', color: '#7fa85a' }}
-            >
-              <CheckCircle2 size={13} strokeWidth={2} />
-              All approved
-            </span>
-          )}
         </div>
 
         {/* Example cards */}

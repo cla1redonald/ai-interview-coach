@@ -18,8 +18,8 @@ export async function GET(request: Request) {
   const keyword = searchParams.get('q');
   const company = searchParams.get('company');
   const tagIds = searchParams.getAll('tag_id');
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100);
-  const offset = parseInt(searchParams.get('offset') ?? '0', 10);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 100);
+  const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0);
 
   try {
     // Build where conditions — always scope to userId

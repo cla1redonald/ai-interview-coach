@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { DeleteTranscriptButton } from '@/components/storybank/DeleteTranscriptButton';
 import { ExtractButton } from '@/components/storybank/ExtractButton';
+import { decryptTranscriptFields, isEncryptionEnabled } from '@/lib/encryption';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
@@ -48,8 +49,12 @@ export default async function TranscriptDetailPage({
 
   if (!transcript) notFound();
 
+  const decryptedTranscript = isEncryptionEnabled()
+    ? { ...transcript, ...decryptTranscriptFields({ rawText: transcript.rawText }) }
+    : transcript;
+
   // Build numbered lines for display
-  const lines = transcript.rawText.split('\n');
+  const lines = decryptedTranscript.rawText.split('\n');
 
   return (
     <div className="max-w-4xl">

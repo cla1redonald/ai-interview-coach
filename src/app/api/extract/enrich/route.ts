@@ -1,10 +1,8 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, jsonSchema, tool } from 'ai';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { transcripts, examples, tags, exampleTags, consistencyEntries } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
-import { decryptTranscriptFields, decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { decryptTranscriptFields, decryptExampleFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/openai';
 import { upsertExampleVector } from '@/lib/vector/upstash';
 import {
@@ -25,39 +23,11 @@ import {
   buildConsistencyUserMessage,
   type PairForConsistency,
 } from '@/lib/prompts/consistency';
+import { callWithTool } from '@/lib/ai/call-with-tool';
 import { prependLineNumbers } from '@/lib/prompts/extraction-pass1';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-const MODEL = 'claude-sonnet-4-5-20250929';
-
-async function callWithTool<T>(
-  systemPrompt: string,
-  userMessage: string,
-  toolDef: { name: string; description: string; parameters: object }
-): Promise<T> {
-  const toolInstance = tool({
-    description: toolDef.description,
-    inputSchema: jsonSchema(toolDef.parameters as Parameters<typeof jsonSchema>[0]),
-  });
-
-  const result = await generateText({
-    model: anthropic(MODEL),
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-    tools: { [toolDef.name]: toolInstance },
-    toolChoice: { type: 'tool', toolName: toolDef.name },
-    maxOutputTokens: 8000,
-  });
-
-  const toolCall = result.toolCalls.find(tc => tc.toolName === toolDef.name);
-  if (!toolCall) {
-    throw new Error(`Claude did not call the ${toolDef.name} tool`);
-  }
-  const callAsAny = toolCall as unknown as { input?: T; args?: T };
-  return (callAsAny.input ?? callAsAny.args) as T;
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +94,11 @@ export async function POST(request: Request) {
 
   if (!transcript) {
     return Response.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  // Idempotency guard — don't re-run enrichment
+  if (transcript.enrichedAt) {
+    return Response.json({ message: 'Already enriched', skipped: true });
   }
 
   // Load examples for this transcript
@@ -212,9 +187,14 @@ export async function POST(request: Request) {
       if (c.corrected_answer) updates.answer = c.corrected_answer;
       if (Object.keys(updates).length > 0) {
         try {
+          const q = updates.question ?? example.question;
+          const a = updates.answer ?? example.answer;
+          const finalSet = isEncryptionEnabled()
+            ? { ...encryptExampleFields({ question: q, answer: a }), updatedAt: new Date().toISOString() }
+            : { ...updates, updatedAt: new Date().toISOString() };
           await db.update(examples)
-            .set({ ...updates, updatedAt: new Date().toISOString() })
-            .where(eq(examples.id, example.id));
+            .set(finalSet)
+            .where(and(eq(examples.id, example.id), eq(examples.userId, userId)));
         } catch (err) {
           console.error('Pass 2 correction update error:', err);
         }
@@ -282,7 +262,7 @@ export async function POST(request: Request) {
     );
 
     if (embeddingInputs.length > 0) {
-      const embeddings = await generateBatchEmbeddings(embeddingInputs, 'document');
+      const embeddings = await generateBatchEmbeddings(embeddingInputs);
       await Promise.all(
         decryptedExamples.map((e, i) =>
           upsertExampleVector(e.id, userId, embeddings[i])
@@ -293,6 +273,11 @@ export async function POST(request: Request) {
     console.error('Embedding generation error (non-fatal):', err);
     warnings.push('Embedding generation failed — run backfill later');
   }
+
+  // Mark transcript as enriched (idempotency)
+  await db.update(transcripts)
+    .set({ enrichedAt: new Date().toISOString() })
+    .where(eq(transcripts.id, transcriptId));
 
   return Response.json({
     enriched: true,

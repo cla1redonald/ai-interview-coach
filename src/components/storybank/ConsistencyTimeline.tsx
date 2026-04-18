@@ -221,15 +221,21 @@ interface ClaimRowProps {
 
 function ClaimRow({ entry, isConflicting, onDelete }: ClaimRowProps) {
   const [deleting, setDeleting] = useState(false);
+  const [confirmPending, setConfirmPending] = useState(false);
 
   async function handleDelete() {
-    if (!confirm('Delete this claim?')) return;
+    if (!confirmPending) {
+      setConfirmPending(true);
+      setTimeout(() => setConfirmPending(false), 3000);
+      return;
+    }
     setDeleting(true);
     try {
       await fetch(`/api/consistency/${entry.id}`, { method: 'DELETE' });
       onDelete(entry.id);
     } catch {
       setDeleting(false);
+      setConfirmPending(false);
     }
   }
 
@@ -292,11 +298,15 @@ function ClaimRow({ entry, isConflicting, onDelete }: ClaimRowProps) {
       <button
         onClick={handleDelete}
         disabled={deleting}
-        aria-label="Delete claim"
-        className="flex-shrink-0 p-1 rounded opacity-40 hover:opacity-100 transition-opacity"
-        style={{ color: 'var(--destructive)' }}
+        aria-label={confirmPending ? 'Confirm delete' : 'Delete claim'}
+        className="flex-shrink-0 p-1 rounded transition-opacity"
+        style={{
+          color: confirmPending ? '#fff' : 'var(--destructive)',
+          background: confirmPending ? 'var(--destructive)' : 'transparent',
+          opacity: confirmPending ? 1 : 0.4,
+        }}
       >
-        <Trash2 size={14} strokeWidth={1.5} />
+        {confirmPending ? <Check size={14} strokeWidth={1.5} /> : <Trash2 size={14} strokeWidth={1.5} />}
       </button>
     </div>
   );

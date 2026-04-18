@@ -7,6 +7,7 @@ import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 import { ChevronLeft } from 'lucide-react';
 import { ReviewPanel } from '@/components/storybank/ReviewPanel';
 import { EnrichTrigger } from '@/components/storybank/EnrichTrigger';
+import { decryptTranscriptFields, decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 
 export default async function ReviewPage({
   params,
@@ -27,6 +28,10 @@ export default async function ReviewPage({
     .limit(1);
 
   if (!transcript) notFound();
+
+  const decryptedTranscript = isEncryptionEnabled()
+    ? { ...transcript, ...decryptTranscriptFields({ rawText: transcript.rawText }) }
+    : transcript;
 
   // Load extracted examples for this transcript
   const exampleRows = await db.select()
@@ -60,7 +65,13 @@ export default async function ReviewPage({
     tagsByExampleId.get(tj.exampleId)!.push(tj);
   }
 
-  const enrichedExamples = exampleRows.map(e => ({
+  const decryptedExamples = exampleRows.map(e =>
+    isEncryptionEnabled()
+      ? { ...e, ...decryptExampleFields({ question: e.question, answer: e.answer }) }
+      : e
+  );
+
+  const enrichedExamples = decryptedExamples.map(e => ({
     id: e.id,
     question: e.question,
     answer: e.answer,
@@ -88,7 +99,7 @@ export default async function ReviewPage({
     return a.name.localeCompare(b.name);
   });
 
-  const transcriptLines = transcript.rawText.split('\n');
+  const transcriptLines = decryptedTranscript.rawText.split('\n');
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 2rem)' }}>

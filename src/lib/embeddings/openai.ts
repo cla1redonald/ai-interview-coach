@@ -69,13 +69,8 @@ async function fetchWithRetry(inputs: string[]): Promise<number[][]> {
 /**
  * Generate a single embedding from OpenAI.
  * Input format: "Q: [question]\nA: [answer]" for examples, or raw text for queries.
- * Note: inputType param kept for API compatibility but OpenAI doesn't distinguish document/query.
  */
-export async function generateEmbedding(
-  text: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  inputType: 'document' | 'query' = 'document'
-): Promise<number[]> {
+export async function generateEmbedding(text: string): Promise<number[]> {
   const results = await fetchWithRetry([text]);
   return results[0];
 }
@@ -86,8 +81,6 @@ export async function generateEmbedding(
  */
 export async function generateBatchEmbeddings(
   texts: string[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  inputType: 'document' | 'query' = 'document',
   batchSize: number = 8
 ): Promise<number[][]> {
   if (texts.length === 0) return [];

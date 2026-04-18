@@ -5,6 +5,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { batchFetchVectors } from '@/lib/vector/upstash';
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 
 const MIN_EXAMPLES = 5;
 const COSINE_DISTANCE_THRESHOLD = 0.25; // cluster if cosine similarity > 0.75
@@ -332,7 +333,12 @@ export async function POST() {
   const userId = session.user.id;
 
   // 1. Load all user examples + tags
-  const allExamples = await db.select().from(examples).where(eq(examples.userId, userId));
+  const rawExamples = await db.select().from(examples).where(eq(examples.userId, userId));
+  const allExamples = rawExamples.map(e =>
+    isEncryptionEnabled()
+      ? { ...e, ...decryptExampleFields({ question: e.question, answer: e.answer }) }
+      : e
+  );
 
   if (allExamples.length < MIN_EXAMPLES) {
     return Response.json({

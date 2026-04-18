@@ -10,9 +10,14 @@ export const maxDuration = 300;
 
 const BATCH_SIZE = 8;
 
-// POST /api/embeddings/backfill — dev/admin only
+// POST /api/embeddings/backfill — admin only (requires ADMIN_TOKEN)
 // Finds all examples without vectors and generates embeddings for them.
-export async function POST() {
+export async function POST(request: Request) {
+  const adminToken = request.headers.get('x-admin-token');
+  if (!process.env.ADMIN_TOKEN || adminToken !== process.env.ADMIN_TOKEN) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -52,7 +57,7 @@ export async function POST() {
     const inputs = batch.map(e => formatExampleForEmbedding(e.question, e.answer));
 
     try {
-      const embeddings = await generateBatchEmbeddings(inputs, 'document', BATCH_SIZE);
+      const embeddings = await generateBatchEmbeddings(inputs, BATCH_SIZE);
       await Promise.all(
         batch.map((e, j) => upsertExampleVector(e.id, userId, embeddings[j]))
       );

@@ -1,10 +1,9 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, jsonSchema, tool } from 'ai';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { transcripts, examples } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { decryptTranscriptFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { callWithTool } from '@/lib/ai/call-with-tool';
 import {
   EXTRACTION_PASS1_SYSTEM,
   EXTRACTION_PASS1_SCHEMA,
@@ -15,37 +14,6 @@ import { type RawPair } from '@/lib/prompts/extraction-pass2';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-const MODEL = 'claude-sonnet-4-5-20250929';
-
-// ─── Helper: call Claude with a tool and parse the result ────────────────────
-
-async function callWithTool<T>(
-  systemPrompt: string,
-  userMessage: string,
-  toolDef: { name: string; description: string; parameters: object }
-): Promise<T> {
-  const toolInstance = tool({
-    description: toolDef.description,
-    inputSchema: jsonSchema(toolDef.parameters as Parameters<typeof jsonSchema>[0]),
-  });
-
-  const result = await generateText({
-    model: anthropic(MODEL),
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-    tools: { [toolDef.name]: toolInstance },
-    toolChoice: { type: 'tool', toolName: toolDef.name },
-    maxOutputTokens: 8000,
-  });
-
-  const toolCall = result.toolCalls.find(tc => tc.toolName === toolDef.name);
-  if (!toolCall) {
-    throw new Error(`Claude did not call the ${toolDef.name} tool`);
-  }
-  const callAsAny = toolCall as unknown as { input?: T; args?: T };
-  return (callAsAny.input ?? callAsAny.args) as T;
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
