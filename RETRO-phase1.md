@@ -15,13 +15,13 @@ StoryBank Phase 1 delivers a career story management platform on top of an exist
 | Feature | Files | Lines |
 |---------|-------|-------|
 | Drizzle schema + Turso database | `src/lib/db/` (3 files) | ~140 |
-| Auth.js magic link auth | `src/lib/auth.ts`, middleware, login pages | ~80 |
+| Auth.js Google OAuth auth | `src/lib/auth.ts`, middleware, login pages | ~80 |
 | Transcript upload + CRUD | API routes + UploadForm component | ~650 |
 | Two-pass AI extraction pipeline | `src/app/api/extract/route.ts` + 4 prompt modules | ~640 |
 | Auto-tagging + consistency extraction | Integrated into extract pipeline | ~170 |
 | Example Bank UI | Page + 9 components (ExampleCard, FilterBar, etc.) | ~2,300 |
 | AES-256-GCM encryption | `src/lib/encryption/index.ts` + tests | ~430 |
-| Voyage AI embeddings + Upstash Vector | `src/lib/embeddings/`, `src/lib/vector/` | ~215 |
+| OpenAI embeddings + Upstash Vector | `src/lib/embeddings/`, `src/lib/vector/` | ~215 |
 | Job spec matching + gap analysis | API route + page + 2 components | ~970 |
 | Mirror Effect (4-panel analysis) | API route + page + 4 components | ~1,130 |
 | Consistency Tracker | API routes + page + component | ~980 |
@@ -38,15 +38,15 @@ The original requirements were defined in ARCHITECTURE.md v2.0 and DESIGN.md. As
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Turso + Drizzle schema (all tables) | Delivered | Schema matches architecture spec exactly |
-| Auth.js magic link via Resend | Delivered | JWT strategy, Drizzle adapter, middleware exclusions |
+| Auth.js Google OAuth | Delivered | JWT strategy, Drizzle adapter, middleware exclusions |
 | Transcript upload (paste + file) | Delivered | Full metadata form, file drop zone |
 | Two-pass Q&A extraction | Delivered | Pass 1 extract, Pass 2 verify+correct, both via tool calling |
 | Auto-tagging (13 system categories) | Delivered | Single-call batched tagging |
 | Consistency claim extraction | Delivered | Integrated into extract pipeline |
 | Example Bank with filters | Delivered | Tag, company, quality, keyword filters; STAR breakdown |
 | Quality rating (strong/weak/neutral) | Delivered | User-controlled, never auto-overwritten |
-| AES-256-GCM encryption | Delivered | CipherStash fallback executed as planned |
-| Voyage AI + Upstash Vector embeddings | Delivered | Document/query input types, batch generation |
+| AES-256-GCM encryption | Delivered | CipherStash evaluated and rejected; AES-256-GCM via Node.js crypto implemented as planned fallback |
+| OpenAI text-embedding-3-small + Upstash Vector | Delivered | Batch embedding generation, 1024 dimensions |
 | Job spec matching + gap analysis | Delivered | Vector similarity + Claude explanation + gap flags |
 | Mirror Effect (4 panels) | Delivered | Recurring stories, phrase cloud, patterns, strength map |
 | Consistency Tracker + contradiction detection | Delivered | LLM-based contradiction flagging |
@@ -154,7 +154,7 @@ The `queryUserVectors` function interpolated `userId` directly into the Upstash 
 | @engineer-cipherstash | Good | Pivoted to AES-256-GCM quickly. 241-line test suite is thorough. Did not wire into routes (not in scope). |
 | @engineer-extraction | Good | Most complex thread. Two-pass pipeline with structured output is well-implemented. Non-fatal error handling is a strong pattern. |
 | @engineer-bankui | Good | 2,300 lines of UI across 9 components. FilterBar, ExampleCard, and ReviewPanel are well-structured. |
-| @engineer-embeddings | Good | Voyage AI + Upstash integration clean. Batch processing with rate limiting. |
+| @engineer-embeddings | Good | OpenAI + Upstash integration clean. Batch processing with rate limiting. |
 | @engineer-consistency | Good | Contradiction detection via LLM is pragmatic for the data complexity. |
 | @reviewer | Good | Found 3 genuine P0s. Security audit was effective. |
 | @docs | Good | README rewritten, PRIVACY.md added. |

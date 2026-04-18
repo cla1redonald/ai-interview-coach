@@ -10,7 +10,7 @@
 ```
 ## Constraints
 - Database: Turso (SQLite) -- user has no free Supabase slots
-- Auth: Auth.js (magic link via Resend)
+- Auth: Auth.js (Google OAuth)
 - Deployment: Vercel
 - Do NOT use: Supabase, Firebase
 ```

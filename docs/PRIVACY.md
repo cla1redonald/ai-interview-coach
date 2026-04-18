@@ -19,9 +19,9 @@ This data is personal and commercially sensitive. A data breach would be harmful
 
 ## Encryption approach
 
-### CipherStash evaluation
+### Encryption approach selection
 
-CipherStash was the original specified approach for encrypted search. After evaluation, CipherStash's SDK (`@cipherstash/protect`) targets PostgreSQL only — it has no libSQL/SQLite support. The fallback defined in ARCHITECTURE.md Section 8 was taken.
+AES-256-GCM via Node.js `crypto` is the current implementation. CipherStash was the originally specified approach for encrypted search but was evaluated and rejected — its SDK (`@cipherstash/protect`) targets PostgreSQL only and has no libSQL/SQLite support. CipherStash can be revisited if the project migrates to PostgreSQL.
 
 ### AES-256-GCM field-level encryption
 
@@ -47,12 +47,12 @@ Non-encrypted fields contain no sensitive free-text. Metadata like interview dat
 
 ### Key derivation
 
-The encryption key is derived from the `ENCRYPTION_KEY` environment variable. If `ENCRYPTION_KEY` is not set, `AUTH_SECRET` is used as a fallback (this means data is still encrypted, just under the auth session key).
+The encryption key is derived from the `ENCRYPTION_KEY` environment variable. If `ENCRYPTION_KEY` is not set, `isEncryptionEnabled()` returns false and all data is stored as plaintext — there is no fallback to `AUTH_SECRET` or any other variable.
 
-Both raw secrets are passed through SHA-256 to produce a deterministic 32-byte AES key.
+When `ENCRYPTION_KEY` is set, it is passed through SHA-256 to produce a deterministic 32-byte AES key.
 
 ```
-ENCRYPTION_KEY (or AUTH_SECRET)
+ENCRYPTION_KEY
         │
         ▼
   SHA-256 digest
@@ -76,9 +76,9 @@ This is opaque to the database — Turso sees only base64 strings.
 
 ### When encryption is active
 
-Encryption is **optional in Phase 1**. If neither `ENCRYPTION_KEY` nor `AUTH_SECRET` is set, `isEncryptionEnabled()` returns false and API routes use plaintext directly.
+Encryption is **optional in Phase 1**. If `ENCRYPTION_KEY` is not set, `isEncryptionEnabled()` returns false and API routes store data as plaintext. No fallback key is used — encryption is simply disabled.
 
-In practice, `AUTH_SECRET` is always set (required for Auth.js), so data is always encrypted at the application layer.
+Set `ENCRYPTION_KEY` to a randomly generated secret (not a passphrase) to enable encryption. Generate one with: `openssl rand -base64 32`.
 
 ---
 
@@ -93,7 +93,7 @@ Because fields are encrypted with a random IV, exact-match or LIKE queries again
 
 This is functionally equivalent to SQLite LIKE search with the privacy story that plaintext is never stored on disk.
 
-**CipherStash "encrypted AND searchable" is out of scope for Phase 1.** The privacy story is "encrypted at rest." CipherStash can be revisited if the project migrates to PostgreSQL.
+**Encrypted AND searchable (CipherStash-style) is out of scope for Phase 1.** The privacy story is "encrypted at rest." This can be revisited if the project migrates to PostgreSQL.
 
 ---
 
