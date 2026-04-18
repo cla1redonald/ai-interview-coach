@@ -53,3 +53,40 @@
 **Detection:** After each wave, diff the implementation against the spec for key fields: ID format, timestamp format, nullable vs. required, default values.
 
 **Source:** StoryBank Phase 1 / 2026-04-18 -- integer vs. ISO-8601 timestamp mismatch
+
+---
+
+## Pivot Debris Left Behind After Service Swap
+
+**What happens:** A dependency is swapped (auth provider, embedding service, encryption library) and the new implementation works, but the old service is still referenced in docs, dead pages, env comments, function params, and type files. The codebase looks like it uses two services simultaneously.
+
+**Root cause:** The swap is treated as a focused implementation task. The engineer changes the code that matters (the module, the routes that call it) and confirms the new path works. Nobody runs a blast radius search for all other references to the old service. Docs, placeholder pages, dead params, and env comments are invisible to `tsc --noEmit`.
+
+**Prevention:** After every service swap commit, run a blast radius grep before moving to the next task:
+```
+grep -r "OLD_SERVICE" --include="*.ts" --include="*.tsx" --include="*.md" --include="*.env*"
+```
+Delete or update every hit. Commit as `chore: sweep references to [old service]`.
+
+**Detection:** Reviewer should grep for the names of any service listed in the architecture spec's "evaluated and rejected" section. If those names appear outside the rejection note itself, they are debris.
+
+**Source:** StoryBank Phase 2 review / 2026-04-18 -- 9 of 19 issues (47%) were pivot debris from Voyage->OpenAI, Resend->Google OAuth, CipherStash->AES-256-GCM swaps
+
+---
+
+## Cross-Cutting Module Partially Wired (Write Path Only)
+
+**What happens:** A cross-cutting module (encryption, logging) is correctly wired into write paths (create, update) but not read paths (detail pages, API GETs, analysis endpoints). Data is encrypted on save but returned as ciphertext blobs on read.
+
+**Root cause:** The integration thread focuses on the "obvious" paths -- where data enters the system. Read paths feel passive and are skipped because "they just SELECT and return." But with encryption, a SELECT returns ciphertext unless decryption is explicitly called.
+
+**Prevention:** When wiring a cross-cutting module, enumerate ALL paths (not just writes):
+1. Write paths: POST, PUT, PATCH routes that INSERT or UPDATE
+2. Read paths: GET routes, detail pages, list pages, analysis/aggregation endpoints
+3. Delete paths: any cleanup needed
+
+For encryption specifically: every route that reads an encrypted field must call the decrypt function before returning data to the client.
+
+**Detection:** For each encrypted field, grep for all SELECT queries on that table. For each SELECT, verify the decrypt function is called on the result before it reaches `Response.json()` or a component render.
+
+**Source:** StoryBank Phase 2 review / 2026-04-18 -- 4 routes reading encrypted fields without decrypting (recurrence of Phase 1 "Cross-Cutting Module Not Wired In" pattern, now split by read/write asymmetry)

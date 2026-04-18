@@ -77,6 +77,24 @@ Never rely on conversation context reaching the architect through implicit chann
 
 ---
 
+## Add a Sweep Phase Before Review
+
+**Context:** The build is feature-complete. All threads have delivered. `tsc --noEmit` passes. About to launch review agents.
+
+**Learning:** In StoryBank, the review found 19 issues. 47% were pivot debris (old service references in docs/dead pages), 32% were partial integration (encryption on writes but not reads), and 21% were missing quality gates (no error boundaries, inconsistent UX, missing rate limits). All of these are cheap to fix BEFORE review but expensive to find and fix AFTER review because the review generates a long remediation list that requires re-context.
+
+**Action:** Before launching review agents, run a sweep phase:
+1. **Pivot sweep:** For each service swap in the git log, grep for old service name across all file types. Delete or update all references.
+2. **Cross-cutting wiring audit:** For each module in `src/lib/` that provides a cross-cutting capability, grep for its imports across all route files AND all page files. Verify both read and write paths.
+3. **Production readiness checklist:** Error boundaries on all pages, rate limiting on public routes, admin auth on internal endpoints, input validation with fallbacks on all query params, consistent delete/destructive action patterns.
+4. **Dead code pass:** Search for placeholder text ("ships in Thread", "TODO", "coming soon"), unused pages, unused type files, dead function params.
+
+This sweep takes 20-30 minutes and prevents the review from surfacing dozens of known-pattern issues.
+
+**Source:** StoryBank Phase 2 review / 2026-04-18 -- 19 issues found, estimated 20 min prevention vs 2+ hr remediation
+
+---
+
 ## Pre-Planned Fallbacks Eliminate Blocking
 
 **Context:** Specifying a dependency with uncertain compatibility.
