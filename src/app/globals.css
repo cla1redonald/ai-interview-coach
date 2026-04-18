@@ -2,26 +2,300 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────
+   Deep Tay — Canonical Roami Design System tokens
+   Source: @roami/design-system (tokens.css)
+   StoryBank accent: amber #e2a039
+   ───────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ============================================================
+     RAW BRAND TOKENS (from @roami/design-system)
+     ============================================================ */
+
+  /* Dark palette — heroes, dark sections, footers */
+  --roami-ink:       #111a24;
+  --roami-tay:       #1a2832;
+  --roami-midnight:  #0d141c;
+
+  /* Accent palette */
+  --roami-river:     #2a5a5a;
+  --roami-copper:    #c4956a;
+  --roami-pine:      #5a7247;
+
+  /* Light palette — body surfaces */
+  --roami-cream:     #faf6f1;
+  --roami-sand:      #a89880;
+  --roami-stone:     #e0d9cf;
+
+  /* Text */
+  --roami-heading:   #2d2a26;
+  --roami-umber:     #6b5d4f;
+  --roami-mist:      #f0eee8;
+  --roami-sage:      #6a8a8a;
+
+  /* Semantic */
+  --roami-success:   #5a7247;
+  --roami-warning:   #c4956a;
+  --roami-error:     #a04040;
+  --roami-info:      #2a5a5a;
+
+  /* Neutral scale (warm undertone) */
+  --roami-neutral-50:  #faf6f1;
+  --roami-neutral-100: #f0eee8;
+  --roami-neutral-200: #e0d9cf;
+  --roami-neutral-300: #c4bdb2;
+  --roami-neutral-400: #a89880;
+  --roami-neutral-500: #8a7d6b;
+  --roami-neutral-600: #6b5d4f;
+  --roami-neutral-700: #4a3f35;
+  --roami-neutral-800: #2d2a26;
+  --roami-neutral-900: #111a24;
+
+  /* ============================================================
+     FONTS (Playfair Display via Google Fonts CDN in layout.tsx)
+     ============================================================ */
+  --roami-font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --roami-font-body:    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --roami-font-mono:    'Fira Code', ui-monospace, SFMono-Regular, monospace;
+
+  /* Sizes */
+  --roami-text-xs:   0.75rem;
+  --roami-text-sm:   0.875rem;
+  --roami-text-base: 1rem;
+  --roami-text-lg:   1.125rem;
+  --roami-text-xl:   1.25rem;
+  --roami-text-2xl:  1.5rem;
+  --roami-text-3xl:  clamp(1.5rem, 3vw, 1.875rem);
+  --roami-text-4xl:  clamp(1.875rem, 4vw, 2.25rem);
+  --roami-text-5xl:  clamp(2.25rem, 5vw, 3rem);
+  --roami-text-6xl:  clamp(2.5rem, 6vw, 3.75rem);
+
+  /* Weights */
+  --roami-weight-regular:  400;
+  --roami-weight-medium:   500;
+  --roami-weight-semibold: 600;
+  --roami-weight-bold:     700;
+
+  /* Leading */
+  --roami-leading-tight:   1.2;
+  --roami-leading-snug:    1.35;
+  --roami-leading-normal:  1.5;
+  --roami-leading-relaxed: 1.75;
+
+  /* Tracking */
+  --roami-tracking-tight:  -0.01em;
+  --roami-tracking-normal: 0;
+  --roami-tracking-wide:   0.05em;
+  --roami-tracking-wider:  0.1em;
+  --roami-tracking-widest: 0.2em;
+
+  /* ============================================================
+     SPACING / RADIUS / SHADOW / MOTION
+     ============================================================ */
+  --roami-space-1:  0.25rem;
+  --roami-space-2:  0.5rem;
+  --roami-space-3:  0.75rem;
+  --roami-space-4:  1rem;
+  --roami-space-6:  1.5rem;
+  --roami-space-8:  2rem;
+  --roami-space-12: 3rem;
+  --roami-space-16: 4rem;
+  --roami-space-24: 6rem;
+  --roami-space-32: 8rem;
+
+  --roami-radius-sm:   4px;
+  --roami-radius-md:   8px;
+  --roami-radius-lg:   12px;
+  --roami-radius-xl:   16px;
+  --roami-radius-full: 9999px;
+
+  --roami-shadow-sm: 0 1px 2px rgba(17, 26, 36, 0.06);
+  --roami-shadow-md: 0 4px 8px rgba(17, 26, 36, 0.08);
+  --roami-shadow-lg: 0 12px 24px rgba(17, 26, 36, 0.12);
+  --roami-shadow-xl: 0 24px 48px rgba(17, 26, 36, 0.16);
+
+  --roami-glow-copper: 0 0 0 1px rgba(196, 149, 106, 0.18), 0 0 32px -8px rgba(196, 149, 106, 0.35);
+
+  --roami-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --roami-duration-fast:   150ms;
+  --roami-duration-normal: 300ms;
+  --roami-duration-slow:   500ms;
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px rgba(196, 149, 106, 0.35);
+
+  /* ============================================================
+     SHORTHAND ALIASES (backward-compat with existing components)
+     ============================================================ */
+  --ink:    var(--roami-ink);
+  --tay:    var(--roami-tay);
+  --copper: var(--roami-copper);
+  --river:  var(--roami-river);
+  --cream:  var(--roami-cream);
+  --mist:   var(--roami-mist);
+  --sage:   var(--roami-sage);
+  --umber:  var(--roami-umber);
+  --dark:   var(--roami-heading);
+  --stone:  var(--roami-stone);
+
+  /* StoryBank Unique Accent (not in canonical palette) */
+  --amber:       #e2a039;
+  --amber-dim:   #b87d2a;
+  --amber-glow:  rgba(226, 160, 57, 0.15);
+  --amber-faint: rgba(226, 160, 57, 0.08);
+
+  /* Semantic — App Layer */
+  --quality-strong: #e2a039;
+  --quality-weak:   var(--roami-error);
+  --quality-unrated: var(--roami-sage);
+  --contradiction:  #c45a2a;
+  --gap:            #6a6a3a;
+  --match-high:     var(--roami-pine);
+  --match-med:      #e2a039;
+  --match-low:      var(--roami-sage);
+
+  /* Radii */
+  --radius: var(--roami-radius-md);
+
+  /* Typography — canonical Roami fonts */
+  --font-heading: var(--roami-font-display);
+  --font-sans:    var(--roami-font-body);
+  --font-mono:    var(--roami-font-mono);
+
+  /* ── Dark mode is the default for StoryBank ──
+     The mock interview page at / uses its own blue gradient and
+     is NOT affected by these semantic tokens because it applies
+     inline Tailwind classes that override them. */
+
+  --background:         var(--roami-ink);
+  --foreground:         var(--roami-mist);
+
+  --card:               var(--roami-tay);
+  --card-foreground:    var(--roami-mist);
+  --card-raised:        #1f3040;
+
+  --popover:            var(--roami-tay);
+  --popover-foreground: var(--roami-mist);
+
+  --primary:            var(--roami-copper);
+  --primary-foreground: var(--roami-ink);
+
+  --secondary:          var(--roami-river);
+  --secondary-foreground: var(--roami-mist);
+
+  --accent:             #e2a039;
+  --accent-foreground:  var(--roami-ink);
+
+  --muted:              var(--roami-tay);
+  --muted-foreground:   var(--roami-sage);
+
+  --destructive:        #c45a2a;
+  --destructive-foreground: var(--roami-mist);
+
+  --border:             rgba(240, 238, 232, 0.10);
+  --border-strong:      rgba(240, 238, 232, 0.18);
+  --input:              rgba(240, 238, 232, 0.12);
+  --ring:               #e2a039;
+
+  --sidebar:            var(--roami-midnight);
+  --sidebar-foreground: var(--roami-mist);
+  --sidebar-primary:    #e2a039;
+  --sidebar-primary-foreground: var(--roami-ink);
+  --sidebar-accent:     rgba(226, 160, 57, 0.08);
+  --sidebar-accent-foreground: var(--roami-mist);
+  --sidebar-border:     rgba(240, 238, 232, 0.08);
+  --sidebar-ring:       #e2a039;
+
+  --chart-1: #e2a039;
+  --chart-2: var(--roami-copper);
+  --chart-3: var(--roami-sage);
+  --chart-4: var(--roami-river);
+  --chart-5: var(--roami-mist);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Light mode — non-default, used if user explicitly switches */
+.light {
+  --background:         var(--roami-cream);
+  --foreground:         var(--roami-umber);
+
+  --card:               #ffffff;
+  --card-foreground:    var(--roami-heading);
+  --card-raised:        var(--roami-mist);
+
+  --popover:            #ffffff;
+  --popover-foreground: var(--roami-heading);
+
+  --primary:            var(--roami-copper);
+  --primary-foreground: #ffffff;
+
+  --secondary:          var(--roami-river);
+  --secondary-foreground: var(--roami-mist);
+
+  --accent:             #e2a039;
+  --accent-foreground:  #ffffff;
+
+  --muted:              var(--roami-mist);
+  --muted-foreground:   var(--roami-umber);
+
+  --destructive:        var(--roami-error);
+  --destructive-foreground: #ffffff;
+
+  --border:             var(--roami-stone);
+  --border-strong:      #cdc5ba;
+  --input:              var(--roami-stone);
+  --ring:               #e2a039;
+
+  --sidebar:            var(--roami-mist);
+  --sidebar-foreground: var(--roami-heading);
+  --sidebar-primary:    #e2a039;
+  --sidebar-primary-foreground: var(--roami-ink);
+  --sidebar-accent:     rgba(226, 160, 57, 0.10);
+  --sidebar-accent-foreground: var(--roami-heading);
+  --sidebar-border:     var(--roami-stone);
+  --sidebar-ring:       #e2a039;
 }
 
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--card) 25%,
+    var(--card-raised) 50%,
+    var(--card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Global body */
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus ring — copper halo, never browser-default blue */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--roami-radius-sm);
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .font-variant-numeric-tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
