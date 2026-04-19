@@ -77,6 +77,28 @@ Never rely on conversation context reaching the architect through implicit chann
 
 ---
 
+## Spec-First Process: Designer + Strategist + PM Before Engineering
+
+**Context:** Launching engineering threads for a feature build with multiple inter-connected components.
+
+**Learning:** In both the Unified Experience build and Phase 2, adding a spec phase (designer, strategist, PM producing separate spec documents) before any engineer thread started prevented mid-build surprises. In the Unified Experience, the PM caught a missing API endpoint that would have blocked Thread B mid-build. In Phase 2, the PM resolved 6 conflicts between the architecture and UX specs before engineering started — including a batch input paradigm conflict that would have produced inconsistent implementations across two threads.
+
+**Action:** For any build involving:
+- Multiple inter-connected UI pages and API routes
+- A separate UX spec and architecture spec (both may conflict)
+- More than 5 engineering threads
+
+Run a spec phase first:
+1. Designer produces UX spec (component props, visual states, accessibility)
+2. Strategist challenges prioritisation and identifies missing integrations
+3. PM resolves conflicts between UX and architecture specs, writes acceptance criteria with edge cases
+
+The spec phase adds ~30-60 minutes but prevents hours of mid-build rework. Validated in 2 consecutive projects.
+
+**Source:** StoryBank Unified Experience (first instance) + Phase 2 (second instance) / 2026-04-19
+
+---
+
 ## Add a Sweep Phase Before Review
 
 **Context:** The build is feature-complete. All threads have delivered. `tsc --noEmit` passes. About to launch review agents.
@@ -104,3 +126,20 @@ This sweep takes 20-30 minutes and prevents the review from surfacing dozens of 
 **Action:** For any dependency marked as uncertain in the architecture spec, require the architect to define: (1) the primary approach, (2) the fallback approach, (3) the trigger condition for switching. Engineers should be pre-authorised to take the fallback without waiting for orchestrator approval.
 
 **Source:** StoryBank Phase 1 / 2026-04-18
+
+---
+
+## Spec the Timing Budget for Vercel Batch Pipelines
+
+**Context:** The architecture spec includes a long-running pipeline (multiple external calls + LLM synthesis per item) that will run on Vercel.
+
+**Learning:** Vercel serverless functions have a 60s timeout. A pipeline of research + assessment + materials for one item takes 40-90s. Without a pre-specified timing budget, an engineer either (a) tries to fit everything in one call and hits the timeout, or (b) invents an ad-hoc budget without knowing the design intent.
+
+**Action:** For any pipeline on Vercel where the per-item cost exceeds 30s, the architecture spec must include:
+1. The processing model: "one item per request, client polls"
+2. The timing budget: `TIMING_BUDGET_MS = function_timeout - 15000` (15s safety margin)
+3. The return contract: `{ remaining: N, processed_this_call: M }` so the client knows whether to poll again
+
+Include this in the architecture spec section for the batch route, not just in code comments.
+
+**Source:** StoryBank Phase 2 / 2026-04-19 -- batch pipeline design
