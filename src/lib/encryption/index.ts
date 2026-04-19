@@ -242,6 +242,33 @@ export function decryptResearchFields(fields: {
   };
 }
 
+// ─── Phase 2: Materials content wrappers ─────────────────────────────────────
+
+/**
+ * Encrypt the content field of a generated material before writing to DB.
+ * No-op (returns input unchanged) if ENCRYPTION_KEY is not set.
+ */
+export function encryptMaterialContent(content: string): string {
+  if (!isEncryptionEnabled()) return content;
+  return serialise(encrypt(content));
+}
+
+/**
+ * Decrypt the content field of a generated material after reading from DB.
+ * No-op (returns input unchanged) if ENCRYPTION_KEY is not set.
+ * Returns the stored value unchanged if it does not look like an encrypted blob
+ * (guards against plaintext rows written before encryption was enabled).
+ */
+export function decryptMaterialContent(content: string): string {
+  if (!isEncryptionEnabled()) return content;
+  try {
+    return decrypt(deserialise(content));
+  } catch {
+    // Not a valid encrypted blob — return as-is (plaintext row)
+    return content;
+  }
+}
+
 // ─── Encryption guard ─────────────────────────────────────────────────────────
 
 /**
