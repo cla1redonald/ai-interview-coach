@@ -1,9 +1,9 @@
 # StoryBank — Architecture Specification
 
-**Version:** 2.0
-**Date:** 2026-04-18
+**Version:** 2.1
+**Date:** 2026-04-19
 **Status:** Approved for build
-**Scope:** Phase 1 — Example Bank
+**Scope:** Phase 1 — Example Bank + Unified Experience (nav polish, focus flow, save to bank)
 
 **Stack:** Next.js 14 App Router · Turso (SQLite) + Drizzle ORM · Upstash Vector · Auth.js (NextAuth v5) · OpenAI · Anthropic API · AES-256-GCM
 
@@ -13,7 +13,7 @@
 
 StoryBank is built by extending the existing AI Interview Coach app (Next.js 14 App Router, stateless, no database, no auth). Phase 1 adds a persistent data layer, user authentication, and the example bank feature set on top of the working mock interview foundation.
 
-The existing `/api/chat` and `/api/personas` routes are preserved unchanged. All new routes live in `src/app/api/` alongside them.
+The existing `/api/chat` and `/api/personas` routes are preserved unchanged in signature; `/api/chat` now accepts an optional `focusTopic` field.
 
 ### Architecture Pattern
 
@@ -22,14 +22,17 @@ The existing `/api/chat` and `/api/personas` routes are preserved unchanged. All
 │                   Next.js App Router                 │
 │                                                      │
 │  Pages: /dashboard, /upload, /transcripts,           │
-│          /examples, /mirror, /match, /consistency    │
+│          /examples, /mirror, /match, /consistency,   │
+│          /practice                                    │
 │  Preserved: / (mock interview — unchanged)           │
 │                                                      │
 │  API Routes:                                         │
-│  Preserved: /api/chat, /api/personas                 │
+│  Preserved: /api/personas                            │
+│  Updated:   /api/chat (optional focusTopic field)    │
 │  New:       /api/transcripts, /api/extract,          │
 │             /api/extract/enrich,                     │
-│             /api/examples, /api/match,               │
+│             /api/examples (GET + POST),              │
+│             /api/match,                              │
 │             /api/mirror, /api/consistency,           │
 │             /api/tags                                │
 │  Auth:      /api/auth/[...nextauth]                  │
@@ -242,11 +245,10 @@ export default {
 
 ### Seed: System Tags
 
+14 system tags total. The 14th (`Practice session`) was added in the Unified Experience build and is applied automatically to examples created without a transcriptId.
+
 ```typescript
 // src/lib/db/seed.ts
-
-import { db } from './index';
-import { tags } from './schema';
 
 const SYSTEM_TAGS = [
   'Tell me about yourself',
@@ -262,19 +264,8 @@ const SYSTEM_TAGS = [
   'Technical depth',
   'Cross-functional / matrix working',
   'Research & discovery approach',
+  'Practice session',   // auto-applied to examples saved from practice sessions
 ];
-
-export async function seedSystemTags() {
-  for (const name of SYSTEM_TAGS) {
-    // Check before insert — SQLite does not support UNIQUE NULL NOT DISTINCT
-    const existing = await db.select().from(tags)
-      .where(and(eq(tags.name, name), isNull(tags.userId)))
-      .limit(1);
-    if (existing.length === 0) {
-      await db.insert(tags).values({ name, isSystem: true, userId: null });
-    }
-  }
-}
 ```
 
 ---
@@ -657,6 +648,16 @@ export interface ConsistencyCheckResponse {
   conflicts: ConsistencyConflict[];
   all_entries_by_topic: Record<ConsistencyTopic, ConsistencyEntry[]>;
 }
+
+// ─── Practice session types ────────────────────────────────────────────────
+
+// Defined in src/lib/practice-utils.ts — reproduced here for reference
+export interface QAPair {
+  question: string;
+  answer: string;
+  wordCount: number;
+  autoSelected: boolean;  // true when wordCount >= 50 and answer does not start with a filler phrase
+}
 ```
 
 ---
@@ -669,6 +670,32 @@ Common error shape:
 ```typescript
 { "error": "Human-readable message" }
 ```
+
+---
+
+### POST /api/chat *(updated)*
+
+Previously unchanged from the original stateless app. Now accepts an optional `focusTopic` field.
+
+**Auth:** Not required (public — mock interview is public)
+
+**Request body:**
+```typescript
+{
+  messages: Message[];
+  personaId: string;
+  mode: 'practice' | 'feedback';
+  focusTopic?: string | null;   // NEW — optional focus context injected into the system prompt
+}
+```
+
+**`focusTopic` handling:**
+- Sanitized server-side: trimmed, capped at 200 characters, newlines replaced with spaces
+- In `practice` mode: appended to the system prompt, asking the persona to open on that topic and probe it at least 3 times
+- In `feedback` mode: ignored (the feedback prompt is persona-specific and not topic-scoped)
+- A null or missing value is a no-op — behavior is identical to the previous version
+
+**Response:** Text stream (Anthropic streaming response)
 
 ---
 
@@ -807,6 +834,35 @@ Sub-steps 2–5 run in parallel. If any sub-step fails, the others continue — 
 **Response 200:** `{ examples: Example[], total: number }` (includes joined `tags[]`)
 
 **Implementation:** Keyword search uses Upstash Vector similarity as the primary mechanism. Falls back to in-memory plaintext filtering when vectors are not yet generated for a user's examples.
+
+---
+
+### POST /api/examples *(new)*
+
+Creates a single example directly, without a transcript. Used by the Save to Bank flow after a practice session.
+
+**Auth:** Required
+
+**Request body:**
+```typescript
+{
+  question: string;              // required, max 2000 chars
+  answer: string;                // required, max 5000 chars
+  transcriptId?: string | null;  // optional — if provided, must belong to this user
+  qualityRating?: string | null; // optional — 'strong' | 'weak' | 'neutral'
+  tagIds?: string[];             // optional — additional tags to apply
+}
+```
+
+**Behaviour:**
+- Fields are encrypted if `ENCRYPTION_KEY` is set
+- If `transcriptId` is null or absent, the `Practice session` system tag is automatically applied
+- Additional `tagIds` are validated against existing tags before INSERT
+- `sourcePosition` is always null (no transcript source to cite)
+
+**Response 201:** `{ example: Example }`
+
+**Errors:** 400 missing fields · 400 question/answer too long · 400 transcriptId not found · 401 unauthenticated · 500 database error
 
 ---
 
@@ -1017,6 +1073,7 @@ Combining question and answer captures both context and content, improving simil
 | `PATCH /api/examples/[id]` modifies `question` or `answer` | Regenerate and upsert async. Return 200 immediately. |
 | `DELETE /api/examples/[id]` | Delete vector from Upstash Vector. Synchronous. |
 | `POST /api/embeddings/backfill` | Generate missing vectors for all user examples. Admin/dev endpoint, not in UI. |
+| `POST /api/examples` (practice session save) | No immediate embedding generation — vectors for practice-saved examples are created on the next backfill or on first `PATCH`. |
 
 ### Mirror Analysis Vector Fetch
 
@@ -1036,9 +1093,106 @@ const vectors = await vectorIndex.fetch(
 
 ---
 
-## 10. File Structure
+## 10. Unified Experience Components
 
-Existing files are marked `(existing)`.
+These components were added in the Unified Experience build (April 2026) to connect the practice session into the broader StoryBank flow.
+
+### PracticeContextBanner
+
+**Location:** `src/components/storybank/PracticeContextBanner.tsx`
+
+Displays the active focus topic (from Mirror) or gap topic (from Job Match) during a practice session. Has two visual modes controlled by the `collapsed` prop:
+
+- **Banner mode** (`collapsed={false}`): full-width amber-bordered card shown before persona selection
+- **Chip mode** (`collapsed={true}`): inline pill shown alongside the "Change Interviewer" button once a persona is active
+
+**Props:**
+```typescript
+interface PracticeContextBannerProps {
+  type: 'focus' | 'gap';  // 'focus' = from Mirror, 'gap' = from Job Match
+  topic: string;
+  onClear: () => void;    // clears the URL param and removes the banner
+  collapsed?: boolean;
+}
+```
+
+---
+
+### SaveToBankPrompt
+
+**Location:** `src/components/storybank/SaveToBankPrompt.tsx`
+
+An inline card rendered below the chat interface after feedback streaming completes. Presents "Review and save" and "Skip" options. Triggers `SaveToBankModal` on review; sets `saveSkipped` state on skip so the prompt does not reappear within the session.
+
+**Props:**
+```typescript
+interface SaveToBankPromptProps {
+  onReview: () => void;
+  onSkip: () => void;
+}
+```
+
+---
+
+### SaveToBankModal
+
+**Location:** `src/components/storybank/SaveToBankModal.tsx`
+
+Full-screen modal for reviewing and saving practice Q&A pairs to the example bank. Receives the extracted pairs from `extractQAPairs()`, lets the user check/uncheck and edit answers inline, then saves selected pairs sequentially via `POST /api/examples`.
+
+**Props:**
+```typescript
+interface SaveToBankModalProps {
+  pairs: QAPair[];
+  focusTopic?: string | null;
+  onClose: () => void;
+  onSaved: (count: number) => void;
+}
+```
+
+**Behaviour:**
+- Pairs are pre-selected based on `QAPair.autoSelected` (word count >= 50, no filler start)
+- Each pair can be edited inline before saving
+- Saves are made sequentially with `POST /api/examples`; partial success is acceptable
+- Displays a count of selected answers; save button is disabled when count is 0
+
+---
+
+## 11. Practice Utilities
+
+**Location:** `src/lib/practice-utils.ts`
+
+```typescript
+export interface QAPair {
+  question: string;
+  answer: string;
+  wordCount: number;
+  autoSelected: boolean;
+}
+
+/**
+ * Extract Q&A pairs from a practice conversation.
+ * Groups assistant questions with following user answers.
+ * Filters to substantive answers only (>= 50 words).
+ * Auto-selects pairs where answer is not a filler start.
+ */
+export function extractQAPairs(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+): QAPair[]
+```
+
+**Filtering rules:**
+- Only assistant → user message pairs (assistant asked the question, user gave the answer)
+- Skips the initial "Hello" exchange and the "How did I do?" feedback request
+- Skips answers under 50 words
+- Skips error messages from the assistant
+- `autoSelected: false` when the answer starts with a known filler phrase ("I don't know", "I'm not sure", "hmm", etc.)
+
+---
+
+## 12. File Structure
+
+Existing files are marked `(existing)`. Files added in the Unified Experience build are marked `(UE)`.
 
 ```
 /Users/clairedonald/ai-interview-coach/
@@ -1054,7 +1208,7 @@ Existing files are marked `(existing)`.
 │   │   │
 │   │   ├── (app)/                   protected route group
 │   │   │   ├── layout.tsx           sidebar nav + auth guard
-│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── dashboard/page.tsx   (UE — quick action updated to "Start a practice session")
 │   │   │   ├── upload/page.tsx
 │   │   │   ├── transcripts/
 │   │   │   │   ├── page.tsx
@@ -1063,15 +1217,16 @@ Existing files are marked `(existing)`.
 │   │   │   │       └── review/page.tsx
 │   │   │   ├── examples/page.tsx
 │   │   │   ├── mirror/page.tsx
-│   │   │   ├── match/page.tsx
-│   │   │   └── consistency/page.tsx
+│   │   │   ├── match/page.tsx       (UE — gap cards include "Practice this gap →" links)
+│   │   │   ├── consistency/page.tsx
+│   │   │   └── practice/page.tsx   (UE — reads ?focus= and ?gap= params)
 │   │   │
 │   │   ├── page.tsx                 (existing — mock interview, preserved unchanged)
 │   │   │
 │   │   └── api/
 │   │       ├── auth/
 │   │       │   └── [...nextauth]/route.ts
-│   │       ├── chat/route.ts        (existing — unchanged)
+│   │       ├── chat/route.ts        (UE — accepts optional focusTopic field)
 │   │       ├── personas/route.ts    (existing — unchanged)
 │   │       ├── transcripts/
 │   │       │   ├── route.ts
@@ -1080,7 +1235,7 @@ Existing files are marked `(existing)`.
 │   │       │   ├── route.ts             Pass 1 extraction
 │   │       │   └── enrich/route.ts      Pass 2 + Tagging + Consistency + Embeddings
 │   │       ├── examples/
-│   │       │   ├── route.ts
+│   │       │   ├── route.ts             (UE — POST handler added alongside existing GET)
 │   │       │   └── [id]/route.ts
 │   │       ├── match/route.ts
 │   │       ├── mirror/
@@ -1091,9 +1246,10 @@ Existing files are marked `(existing)`.
 │   │
 │   ├── components/
 │   │   ├── PersonaSelector.tsx      (existing)
-│   │   ├── ChatInterface.tsx        (existing)
+│   │   ├── ChatInterface.tsx        (UE — focusTopic prop + onFeedbackComplete callback)
 │   │   ├── ui/                      (existing shadcn)
 │   │   └── storybank/
+│   │       ├── AppSidebar.tsx       (UE — nav sections renamed BUILD/APPLY/PRACTISE; Mic icon)
 │   │       ├── ExampleCard.tsx
 │   │       ├── FilterBar.tsx
 │   │       ├── StarBreakdown.tsx
@@ -1101,8 +1257,11 @@ Existing files are marked `(existing)`.
 │   │       ├── TagPicker.tsx
 │   │       ├── MatchResultCard.tsx
 │   │       ├── GapAnalysis.tsx
-│   │       ├── StrengthMap.tsx
-│   │       └── ConsistencyTimeline.tsx
+│   │       ├── StrengthMap.tsx      (UE — "Practice [category] →" CTA on weak categories)
+│   │       ├── ConsistencyTimeline.tsx
+│   │       ├── PracticeContextBanner.tsx  (UE — new)
+│   │       ├── SaveToBankPrompt.tsx       (UE — new)
+│   │       └── SaveToBankModal.tsx        (UE — new)
 │   │
 │   └── lib/
 │       ├── config.ts                (existing)
@@ -1110,12 +1269,13 @@ Existing files are marked `(existing)`.
 │       ├── personas.ts              (existing)
 │       ├── rate-limit.ts            (existing)
 │       ├── auth.ts                  Auth.js config
+│       ├── practice-utils.ts        (UE — new: extractQAPairs utility)
 │       ├── types/
 │       │   └── index.ts             expanded from existing types.ts
 │       ├── db/
 │       │   ├── index.ts             Turso + Drizzle client
 │       │   ├── schema.ts            Drizzle schema
-│       │   └── seed.ts              system tag seed
+│       │   └── seed.ts              (UE — 14 system tags, incl. "Practice session")
 │       ├── vector/
 │       │   └── upstash.ts           Upstash Vector client
 │       ├── embeddings/
@@ -1137,18 +1297,18 @@ Existing files are marked `(existing)`.
 ├── docs/
 │   ├── ARCHITECTURE.md              (this file)
 │   ├── METHODOLOGY.md               (existing)
-│   └── PRIVACY.md                   (Thread 3)
+│   └── PRIVACY.md
 │
 ├── personas/                        (existing)
 ├── cli/                             (existing)
 ├── tests/                           (existing)
 ├── coach.config.json                (existing)
-└── middleware.ts                    (new — Auth.js session middleware)
+└── middleware.ts                    Auth.js session middleware
 ```
 
 ---
 
-## 11. Migration Strategy
+## 13. Migration Strategy
 
 ### Constraint: Preserve Mock Interview
 
@@ -1179,7 +1339,7 @@ Drizzle migrations only CREATE new tables. Nothing to migrate from (app was stat
 
 ---
 
-## 12. Complexity Assessment
+## 14. Complexity Assessment
 
 | Component | Complexity | Notes |
 |-----------|-----------|-------|
@@ -1193,13 +1353,16 @@ Drizzle migrations only CREATE new tables. Nothing to migrate from (app was stat
 | Thread 7: Job spec matching | Medium | Relies on Thread 6; gap analysis adds Claude call |
 | Thread 8: Mirror effect | Medium-High | Vector clustering + phrase analysis + Claude synthesis |
 | Thread 9: Consistency tracker | Medium | Auto-extraction hooked into Thread 4 pipeline |
+| Thread A: Focus flow (UE) | Low | Query param reading + system prompt injection |
+| Thread B: Save to Bank (UE) | Low-Medium | POST /api/examples + extractQAPairs + modal UX |
+| Thread D: Nav polish (UE) | Low | Label and icon changes in AppSidebar |
 
 **Validate early (before building Thread 7 on top of Thread 6):**
 Test `filter: "userId = 'x'"` against a real Upstash Vector index with dummy data. Confirm the metadata filter syntax works correctly before the matching feature depends on it.
 
 ---
 
-## 13. Environment Variables
+## 15. Environment Variables
 
 ```bash
 # Turso
@@ -1230,7 +1393,7 @@ ENCRYPTION_KEY=[run: openssl rand -base64 32]
 
 ---
 
-## 14. Key Decisions and Rationale
+## 16. Key Decisions and Rationale
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -1248,10 +1411,12 @@ ENCRYPTION_KEY=[run: openssl rand -base64 32]
 | Consistency detection | LLM-based | Numerical variations and framing differences too complex for rule-based matching |
 | STAR fields | Nullable, user-controlled only | Never auto-overwritten; "Break down" button is an explicit user action |
 | Auth middleware scope | Excludes `/`, `/api/chat`, `/api/personas` | Mock interview stays fully public |
+| Practice session tag | 14th system tag, auto-applied on POST /api/examples with no transcriptId | Lets users filter bank to practice-only examples; consistent with the system tag pattern |
+| focusTopic sanitisation | trim + 200 char cap + newline removal | Prevents prompt injection via URL params; fits within system prompt without awkward formatting |
 
 ---
 
-## 15. Accuracy Profile (AI Components)
+## 17. Accuracy Profile (AI Components)
 
 | Component | Accuracy Target | How Validated | Risk if Wrong |
 |-----------|----------------|---------------|---------------|
@@ -1265,4 +1430,4 @@ ENCRYPTION_KEY=[run: openssl rand -base64 32]
 
 ---
 
-*ARCHITECTURE.md — StoryBank Phase 1 v2.0 (Turso + Upstash Vector + Auth.js)*
+*ARCHITECTURE.md — StoryBank Phase 1 v2.1 (Turso + Upstash Vector + Auth.js + Unified Experience)*

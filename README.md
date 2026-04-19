@@ -8,10 +8,11 @@ Career story management platform for senior professionals. Upload interview tran
 
 - **Transcript upload** — paste text or upload a file
 - **Two-pass AI extraction** — extracts Q&A pairs with source citation, verified on a second pass to reduce hallucination
-- **Auto-tagging** — 13 competency categories applied automatically (leadership, commercial, technical, and more)
+- **Auto-tagging** — 14 competency categories applied automatically (leadership, commercial, technical, practice session, and more)
 - **Example bank** — filter by tag, quality rating, or keyword; STAR format breakdown per example
-- **Job spec matching** — paste a job description and get ranked matches with gap analysis
-- **Mirror effect** — surface recurring stories, phrase patterns, and a strength map across your example bank
+- **Job spec matching** — paste a job description and get ranked matches with gap analysis; each gap links directly to a targeted practice session
+- **Mirror effect** — surface recurring stories, phrase patterns, and a strength map across your example bank; weak categories link directly to practice
+- **Practice sessions** — mock interview with AI personas; practice can be focused on a specific topic or gap from your analysis; save answers directly to your example bank afterwards
 - **Consistency tracker** — detect contradictions between examples you've told in different contexts
 - **AES-256-GCM encryption** — sensitive transcript and example fields encrypted at rest
 - **Semantic search** — OpenAI text-embedding-3-small embeddings stored in Upstash Vector for similarity-based matching
@@ -39,6 +40,7 @@ npm install
 cp .env.example .env.local
 # Fill in environment variables (see below)
 npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
@@ -68,7 +70,7 @@ Copy `.env.example` to `.env.local` and fill in the values:
 
 ## Architecture
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture spec, including the two-pass extraction pipeline, database schema, encryption design, and vector search approach.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture spec, including the two-pass extraction pipeline, database schema, encryption design, vector search approach, and the Unified Experience components (focus flow, save to bank).
 
 ---
 

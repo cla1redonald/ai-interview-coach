@@ -23,9 +23,11 @@ interface ChatInterfaceProps {
   personaId: string;
   mode: 'practice' | 'feedback';
   onModeChange: (mode: 'practice' | 'feedback') => void;
+  focusTopic?: string | null;
+  onFeedbackComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void;
 }
 
-export function ChatInterface({ personaId, mode, onModeChange }: ChatInterfaceProps) {
+export function ChatInterface({ personaId, mode, onModeChange, focusTopic, onFeedbackComplete }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,7 +49,7 @@ export function ChatInterface({ personaId, mode, onModeChange }: ChatInterfacePr
     setInput(e.target.value);
   };
 
-  const sendMessage = async (messagesToSend: Message[], currentMode: 'practice' | 'feedback') => {
+  const sendMessage = async (messagesToSend: Message[], currentMode: 'practice' | 'feedback'): Promise<string | null> => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/chat', {
@@ -57,6 +59,7 @@ export function ChatInterface({ personaId, mode, onModeChange }: ChatInterfacePr
           messages: messagesToSend,
           personaId,
           mode: currentMode,
+          focusTopic: focusTopic ?? null,
         }),
       });
 
@@ -86,12 +89,15 @@ export function ChatInterface({ personaId, mode, onModeChange }: ChatInterfacePr
           });
         }
       }
+
+      return assistantMessage || null;
     } catch (error) {
       console.error('Chat error:', error);
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Sorry, there was an error. Please try again.' },
       ]);
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -109,14 +115,21 @@ export function ChatInterface({ personaId, mode, onModeChange }: ChatInterfacePr
     await sendMessage(updatedMessages, mode);
   };
 
-  const handleGetFeedback = () => {
+  const handleGetFeedback = async () => {
     onModeChange('feedback');
     const feedbackPrompt = 'How did I do? Give me detailed feedback on my answers.';
     const userMessage: Message = { role: 'user', content: feedbackPrompt };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
-    sendMessage(updatedMessages, 'feedback');
+    const feedbackResponse = await sendMessage(updatedMessages, 'feedback');
+    if (feedbackResponse && onFeedbackComplete) {
+      const allMessages: Message[] = [
+        ...updatedMessages,
+        { role: 'assistant' as const, content: feedbackResponse },
+      ];
+      onFeedbackComplete(allMessages);
+    }
   };
 
   const exportTranscript = () => {

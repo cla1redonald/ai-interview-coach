@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags, transcripts } from '@/lib/db/schema';
 import { eq, and, like, desc, inArray, or, isNull } from 'drizzle-orm';
-import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { decryptExampleFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 
 // GET /api/examples — list user's examples with optional filtering + joined tags
 export async function GET(request: Request) {
@@ -149,6 +149,106 @@ export async function GET(request: Request) {
     return Response.json({ examples: final, total });
   } catch (err) {
     console.error('GET /api/examples error:', err);
+    return Response.json({ error: 'Database error' }, { status: 500 });
+  }
+}
+
+// POST /api/examples — create a new example directly (e.g. from practice session)
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = session.user.id;
+
+  try {
+    const body = await request.json();
+    const { question, answer, transcriptId, qualityRating, tagIds } = body as {
+      question: unknown;
+      answer: unknown;
+      transcriptId: unknown;
+      qualityRating: unknown;
+      tagIds: unknown;
+    };
+
+    // Validate required fields
+    if (typeof question !== 'string' || !question.trim()) {
+      return Response.json({ error: 'Question and answer are required' }, { status: 400 });
+    }
+    if (typeof answer !== 'string' || !answer.trim()) {
+      return Response.json({ error: 'Question and answer are required' }, { status: 400 });
+    }
+    if (question.length > 2000) {
+      return Response.json({ error: 'Question too long (max 2000 chars)' }, { status: 400 });
+    }
+    if (answer.length > 5000) {
+      return Response.json({ error: 'Answer too long (max 5000 chars)' }, { status: 400 });
+    }
+
+    // If transcriptId provided, verify it belongs to this user
+    if (transcriptId && typeof transcriptId === 'string') {
+      const [transcript] = await db.select({ id: transcripts.id })
+        .from(transcripts)
+        .where(and(eq(transcripts.id, transcriptId), eq(transcripts.userId, userId)))
+        .limit(1);
+      if (!transcript) {
+        return Response.json({ error: 'Transcript not found' }, { status: 400 });
+      }
+    }
+
+    // Encrypt fields if encryption is enabled
+    const finalFields = isEncryptionEnabled()
+      ? encryptExampleFields({ question: question.trim(), answer: answer.trim() })
+      : { question: question.trim(), answer: answer.trim() };
+
+    // Insert example
+    const [created] = await db.insert(examples).values({
+      userId,
+      transcriptId: (typeof transcriptId === 'string' && transcriptId) ? transcriptId : null,
+      question: finalFields.question,
+      answer: finalFields.answer,
+      qualityRating: (typeof qualityRating === 'string' && qualityRating) ? qualityRating : null,
+      sourcePosition: null,
+    }).returning();
+
+    // Auto-apply "Practice session" tag when there is no transcriptId
+    if (!transcriptId) {
+      const [practiceTag] = await db.select({ id: tags.id })
+        .from(tags)
+        .where(and(isNull(tags.userId), eq(tags.name, 'Practice session')))
+        .limit(1);
+      if (practiceTag) {
+        await db.insert(exampleTags).values({
+          exampleId: created.id,
+          tagId: practiceTag.id,
+        }).onConflictDoNothing();
+      }
+    }
+
+    // Apply additional tags if provided
+    if (Array.isArray(tagIds) && tagIds.length > 0) {
+      const typedTagIds = tagIds.filter((t): t is string => typeof t === 'string');
+      if (typedTagIds.length > 0) {
+        const validTags = await db.select({ id: tags.id })
+          .from(tags)
+          .where(
+            and(
+              inArray(tags.id, typedTagIds),
+              or(isNull(tags.userId), eq(tags.userId, userId))
+            )
+          );
+        for (const vt of validTags) {
+          await db.insert(exampleTags).values({
+            exampleId: created.id,
+            tagId: vt.id,
+          }).onConflictDoNothing();
+        }
+      }
+    }
+
+    return Response.json({ example: created }, { status: 201 });
+  } catch (err) {
+    console.error('POST /api/examples error:', err);
     return Response.json({ error: 'Database error' }, { status: 500 });
   }
 }

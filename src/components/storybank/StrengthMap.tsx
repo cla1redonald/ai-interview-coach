@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { StrengthCategory } from '@/app/api/mirror/analyze/route';
 
 interface StrengthMapProps {
@@ -82,6 +83,16 @@ export function StrengthMap({ categories }: StrengthMapProps) {
             {cat.neutral > 0 && ` · ${cat.neutral} neutral`}
             {cat.unrated > 0 && ` · ${cat.unrated} unrated`}
           </p>
+          {/* Practice CTA — shown when weak coverage outweighs strong */}
+          {(cat.weak + cat.unrated > cat.strong) && (
+            <Link
+              href={`/practice?focus=${encodeURIComponent(cat.tag_name)}`}
+              className="text-xs mt-1 inline-block"
+              style={{ color: 'var(--amber)', opacity: 0.85 }}
+            >
+              Practice {cat.tag_name} →
+            </Link>
+          )}
         </div>
       ))}
 

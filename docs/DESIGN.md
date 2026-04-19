@@ -1,9 +1,9 @@
 # StoryBank — Design Specification
 
-**Version:** 1.2
-**Date:** 2026-04-18
+**Version:** 1.3
+**Date:** 2026-04-19
 **Status:** Ready for implementation
-**Changelog:** v1.1 — Added login page spec · v1.2 — Updated login to Google OAuth (replaced magic link)
+**Changelog:** v1.1 — Added login page spec · v1.2 — Updated login to Google OAuth (replaced magic link) · v1.3 — Nav section labels updated to BUILD/APPLY/PRACTISE; Practice icon changed to Mic; new Unified Experience components added
 
 ---
 
@@ -254,7 +254,18 @@ No external font loads. System stack only — fast, no layout shift, respects us
 
 **Structure:** Fixed left rail, full height. Width 220px (expanded) / 48px (icon-only).
 
-**Items and icons (Lucide):**
+**Navigation sections (current):**
+
+The sidebar is divided into labelled sections. Section labels use `--sage` caption in uppercase with a 1px `--border` divider below each label.
+
+| Section | Items | Notes |
+|---------|-------|-------|
+| *(unlabelled)* | Dashboard, Upload | Top of nav, no section label |
+| BUILD | Example Bank, Mirror, Job Match | Covers building your example library and analysing it |
+| APPLY | Consistency | Cross-company claim tracking |
+| PRACTISE | Practice | Mock interview — `Mic` icon |
+
+**Icon mapping:**
 
 | Label | Icon | Notes |
 |-------|------|-------|
@@ -264,6 +275,7 @@ No external font loads. System stack only — fast, no layout shift, respects us
 | Mirror | `Sparkles` | Pattern recognition / reflection |
 | Job Match | `Target` | Spec-to-bank matching |
 | Consistency | `GitBranch` | Cross-company claim tracker |
+| Practice | `Mic` | Mock interview practice (was `MessageCircle` before v1.3) |
 
 **Visual spec:**
 - Background: `#0e1520` (slightly darker than ink, creating depth against content area)
@@ -272,9 +284,8 @@ No external font loads. System stack only — fast, no layout shift, respects us
 - Inactive: icon `--sage`, label `--mist` at 85% opacity
 - Hover: background `--amber-faint`, icon and label `--mist` at 100%
 - Active: background `--amber-glow`, left border 2px `--amber`, icon `--amber`, label `--mist` bold
-- Section divider between Upload and Example Bank: 1px `--border`, labelled "Library" in `--sage` caption
-- Section divider before Consistency: labelled "Track" in `--sage` caption
-- Bottom of sidebar: user avatar (initials only, 28px circle `--tay` border), and Settings icon (`Settings2`)
+- Section dividers: 1px `--border` with section label in `--sage` caption (uppercase, wide letter-spacing)
+- Bottom of sidebar: user avatar (initials only, 28px circle `--tay` border), sign-out affordance, and Settings icon (`Settings2`)
 - Collapse toggle: `ChevronLeft` / `ChevronRight` at bottom of rail, 32px touch target
 
 **Responsive:**
@@ -414,13 +425,13 @@ No external font loads. System stack only — fast, no layout shift, respects us
 - Card background: `--card`, left accent bar `--amber`, 3px
 - Example: "When asked about leadership → Army story (6/7 times)"
 
-**Sub-section 4 — Strength Bar Chart**
+**Sub-section 4 — Strength Map**
 - Heading: "Example quality by category"
-- Horizontal stacked bar chart (custom, not Chart.js — keep it simple with CSS flex bars)
-- Each row: category label, bar (green portion = strong, amber = unrated, red = weak), example count
-- Annotation on hover: "3 strong, 2 weak, 1 unrated"
+- Horizontal stacked bar chart (custom CSS flex bars — no Chart.js)
+- Each row: category label, bar (amber = strong, sage = neutral, dark blue-grey = unrated, red = weak), example count
+- On hover: annotation shows breakdown ("3 strong · 2 weak · 1 unrated")
 - Sorted by strength score descending — best categories at top
-- "Stakeholder management" and "Leadership" will likely top this for the target user
+- **Unified Experience addition:** Below each category where `weak + unrated > strong`, a "Practice [category] →" link appears in `--amber`. Links to `/practice?focus=[category]`.
 
 ---
 
@@ -497,8 +508,90 @@ Compensation expectations                    [+ Add claim]
 - Heading: "Gaps to address"
 - List: "They require M&A integration experience — no examples in your bank. Consider preparing one before applying."
 - Icon: `AlertCircle`, `--amber`
+- **Unified Experience addition:** Each gap card includes a "Practice this gap →" link below the description, in `--amber`. Links to `/practice?gap=[requirement]`.
 
-**"Use in application" CTA:** Secondary button on each card — "Use this example" — triggers the Apply loop with this example pre-selected.
+---
+
+### 4.8 PracticeContextBanner *(new in v1.3)*
+
+**Purpose:** Surfaces the active focus context (from Mirror or Job Match) throughout a practice session.
+
+**Two visual modes:**
+
+**Banner mode** — shown before persona selection:
+```
+┌─────────────────────────────────────────────────────┐
+│  ✛  Practising with focus: Stakeholder management.  │  [Clear]
+│     Your Mirror analysis flagged this as a weak area.│
+└─────────────────────────────────────────────────────┘
+```
+- Background: `--amber-faint`
+- Border: 1px `--amber`, `--radius-md`
+- Icon: `Crosshair` Lucide, 18px `--amber`
+- Text: `--mist`, body-sm
+- "Clear" button: `--sage`, becomes `--mist` on hover
+
+**Chip mode** (`collapsed={true}`) — shown inline once a persona is active:
+- Pill shape, `--radius-full`
+- Background: `--amber-faint`, border: 1px `--amber`
+- Icon: `Crosshair` 14px, topic text 12px `--mist`
+- `X` dismiss button: 12px `--sage`
+
+**Focus source labelling:**
+- `type="focus"` (from Mirror): "Practising with focus: [topic]. Your Mirror analysis flagged this as a weak area."
+- `type="gap"` (from Job Match): "Practising a gap: [topic]. Identified from your Job Match analysis."
+
+**Accessibility:** `role="status"` on the container. Clear button has `aria-label="Clear practice focus: [topic]"`.
+
+---
+
+### 4.9 SaveToBankPrompt *(new in v1.3)*
+
+**Purpose:** An inline card shown after feedback streaming completes, inviting the user to save answers to their example bank.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Archive  Save to your Example Bank?                 │
+│           Your answers during this session can        │
+│           become examples in your bank. They will    │
+│           be tagged "Practice session" and marked    │
+│           as unrated until you review them.           │
+│                                                       │
+│           [Review and save]  Skip                    │
+└─────────────────────────────────────────────────────┘
+```
+
+- Background: `--card`, border-left: 3px `--amber`
+- Archive icon: 20px `--amber`
+- Heading: `--mist`, body font-semibold
+- Body text: `--sage`
+- "Review and save": amber button (`--amber` background, `--ink` text)
+- "Skip": text link, `--sage`
+
+---
+
+### 4.10 SaveToBankModal *(new in v1.3)*
+
+**Purpose:** Full-screen modal for reviewing and saving practice answers before they go into the example bank.
+
+**Layout:**
+- Centred modal, max-width 640px, max-height 80vh (scrollable)
+- Background: `--card`, border: 1px `--border`, `--radius-lg`
+- Backdrop: `rgba(0,0,0,0.6)`, click to close
+
+**Structure:**
+1. Header: "Save practice answers" (Georgia, 18px `--mist`) + `X` close button
+2. Subtitle: "Select the answers worth keeping:" (`--sage`)
+3. Q&A pair list — one card per pair:
+   - Background: `--amber-faint` + amber border when selected; transparent + `--border` when unchecked
+   - Checkbox top-left
+   - Question: truncated to 120 chars, `--sage` text-xs
+   - Answer: truncated to 200 chars, `--mist` body-sm; or textarea in edit mode
+   - "Edit answer" / "Done editing" toggle: `--amber` text-xs
+4. Focus tag indicator (when `focusTopic` is set): "All saved answers will be tagged: Practice session · [topic]"
+5. Footer: answer count + Cancel + Save button
+   - Count: `--sage` body-sm, `aria-live="polite"`
+   - Save button: `--amber` background, disabled when count is 0 or while saving
 
 ---
 
@@ -575,32 +668,27 @@ export async function handleGoogleSignIn() {
 
 ```
 ┌────────┬───────────────────────────────────────────────┐
-│        │  Good evening, Claire                          │  ← personalised greeting
-│ SIDE   │  "12 examples banked · 3 transcripts · 2 open │     + quick stats row
-│ BAR    │   applications"                                │
-│        │  ─────────────────────────────────────────── │
+│        │  Welcome to StoryBank                          │
+│ SIDE   │  "Your career story, organised."              │
+│ BAR    │  ─────────────────────────────────────────── │
 │        │                                               │
-│        │  RECENT ACTIVITY                              │  ← last 3 actions
-│        │  [Card: Transcript uploaded — Airbox, today]  │
-│        │  [Card: 8 new examples extracted]             │
-│        │  [Card: Consistency flag — compensation]      │
-│        │                                               │
-│        │  ─────────────────────────────────────────── │
-│        │                                               │
-│        │  YOUR STORY STRENGTH      [View Mirror →]    │  ← mini bar chart
-│        │  [Strength bars by category, top 5]          │
+│        │  [Stats row: examples · transcripts ·         │
+│        │   in progress — amber mono numerals]          │
 │        │                                               │
 │        │  ─────────────────────────────────────────── │
 │        │                                               │
 │        │  QUICK ACTIONS                                │
-│        │  [Upload transcript]  [Match a job spec]      │
-│        │  [View example bank]  [Check consistency]     │
+│        │  [Upload transcript]  [Example bank]          │
+│        │  [Match a job spec]   [Start a practice       │
+│        │                        session]               │
 └────────┴───────────────────────────────────────────────┘
 ```
 
-**Stats row:** Three metrics, `mono` font, amber numerals. "12 examples" / "3 transcripts" / "2 in progress". No unnecessary chart — numbers are enough.
+**Stats row:** Three metrics, `mono` font, amber numerals.
 
-**Quick action cards:** 2x2 grid. Icon + label. Icon in amber, card background `--card`, hover `--amber-faint`.
+**Quick action cards:** 2×2 grid (4×1 on sm+). Icon + label. Icon in amber, card background `--card`, hover `--amber-faint`.
+
+The four quick actions are: Upload transcript · Example bank · Match a job spec · Start a practice session. (The previous fourth action "Check consistency" was replaced with "Start a practice session" in v1.3.)
 
 ---
 
@@ -697,7 +785,7 @@ export async function handleGoogleSignIn() {
 │        │  [Recurring Stories section]                  │
 │        │  [Phrase Cloud section]                       │
 │        │  [Pattern Cards section]                      │
-│        │  [Strength Bars section]                      │
+│        │  [Strength Bars section — with practice CTAs] │
 └────────┴───────────────────────────────────────────────┘
 ```
 
@@ -719,8 +807,8 @@ export async function handleGoogleSignIn() {
 │        │                                               │
 │        │  ─────────────────────────────────────────── │
 │        │  RESULTS (after match)                        │
-│        │  [Ranked result cards — see 4.7]              │
-│        │  [Gap flags below]                            │
+│        │  [Ranked result cards]                        │
+│        │  [Gap flags — each with "Practice this gap →"]│
 └────────┴───────────────────────────────────────────────┘
 ```
 
@@ -742,6 +830,33 @@ export async function handleGoogleSignIn() {
 │        │  [+ Add custom topic]                         │
 └────────┴───────────────────────────────────────────────┘
 ```
+
+---
+
+### 5.9 Practice *(new in v1.3)*
+
+```
+┌────────┬───────────────────────────────────────────────┐
+│        │  Mock Interview Practice                       │
+│ SIDE   │  "Practice with AI-powered interviewer         │
+│ BAR    │   personas..."                                  │
+│        │  ─────────────────────────────────────────── │
+│        │  [PracticeContextBanner — if ?focus= or ?gap=]│
+│        │                                               │
+│        │  [PersonaSelector — before selection]         │
+│        │   OR                                          │
+│        │  [ChatInterface — after selection]            │
+│        │     with collapsed PracticeContextBanner chip │
+│        │                                               │
+│        │  [SaveToBankPrompt — after feedback]          │
+│        │  [SaveToBankModal — on "Review and save"]     │
+└────────┴───────────────────────────────────────────────┘
+```
+
+**URL params:**
+- `?focus=[topic]` — driven from Mirror Strength Map (weak category)
+- `?gap=[requirement]` — driven from Job Match gap cards
+- Both params pre-populate the `PracticeContextBanner` and inject `focusTopic` into the `/api/chat` system prompt
 
 ---
 
@@ -833,6 +948,8 @@ All interactive elements: 2px outline `--amber` (ring), 2px offset. Never remove
 - Mirror sections: `<section>` with `aria-labelledby` pointing to `<h2>`
 - Consistency timeline: `<table>` or `<dl>` structure per topic group (not `<div>` soup)
 - Job match results: `<ol>` (ordered list — ranking matters)
+- PracticeContextBanner: `role="status"` on the container
+- SaveToBankModal: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to the title
 
 ### ARIA
 
@@ -844,6 +961,8 @@ All interactive elements: 2px outline `--amber` (ring), 2px offset. Never remove
 - Contradiction flags: `role="alert"` so screen readers announce them
 - Phrase cloud tags: `role="button"` if interactive, proper keyboard handling
 - Login error region: `role="alert"` so screen readers announce immediately
+- SaveToBankModal answer count footer: `aria-live="polite"`
+- PracticeContextBanner clear button: `aria-label="Clear practice focus: [topic]"`
 
 ### Keyboard Navigation
 
@@ -891,6 +1010,7 @@ The amber accent `#e2a039` is used for:
 - **Stats on dashboard** (the numbers that matter)
 - **Progress indicators** during extraction
 - **Login confirmation** — success icon on OAuth callback
+- **Practice flow** — PracticeContextBanner border and icon, SaveToBankPrompt border, "Review and save" button, "Practice [category] →" CTAs, "Practice this gap →" CTAs
 
 It is NOT used for:
 - Primary CTA buttons (that remains copper — portfolio-consistent)
@@ -911,6 +1031,7 @@ This keeps amber meaningful: it marks **what matters, what's strong, what's acti
 | Mirror | `Sparkles` | Nav |
 | Job Match | `Target` | Nav |
 | Consistency | `GitBranch` | Nav |
+| Practice | `Mic` | Nav (changed from `MessageCircle` in v1.3) |
 | Settings | `Settings2` | Sidebar bottom |
 | User | `UserCircle` | Sidebar bottom |
 | Search | `Search` | Filter bar |
@@ -941,3 +1062,5 @@ This keeps amber meaningful: it marks **what matters, what's strong, what's acti
 | Download | `Download` | Export |
 | Match | `Zap` | Match/relevance |
 | Mail | `Mail` | Email display (user profile, contact info) |
+| Practice focus | `Crosshair` | PracticeContextBanner — focus/gap indicator |
+| Save to bank | `Archive` | SaveToBankPrompt icon |

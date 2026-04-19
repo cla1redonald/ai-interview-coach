@@ -1,4 +1,4 @@
-import { LayoutDashboard, Upload, BookMarked, GitBranch } from 'lucide-react';
+import { LayoutDashboard, Upload, BookMarked, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
           { label: 'Upload transcript', href: '/upload', icon: Upload },
           { label: 'Example bank', href: '/examples', icon: BookMarked },
           { label: 'Match a job spec', href: '/match', icon: LayoutDashboard },
-          { label: 'Check consistency', href: '/consistency', icon: GitBranch },
+          { label: 'Start a practice session', href: '/practice', icon: MessageCircle },
         ].map(({ label, href, icon: Icon }) => (
           <Link
             key={href}

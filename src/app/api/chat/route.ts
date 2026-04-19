@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { messages, personaId, mode } = await req.json();
+    const { messages, personaId, mode, focusTopic } = await req.json();
 
     // Input validation
     if (!Array.isArray(messages) || messages.length > MAX_MESSAGES_PER_REQUEST) {
@@ -63,6 +63,9 @@ export async function POST(req: Request) {
         return new Response(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`, {
           status: 400,
         });
+      }
+      if (!['user', 'assistant'].includes(msg.role)) {
+        return new Response('Invalid message role', { status: 400 });
       }
     }
 
@@ -87,6 +90,12 @@ export async function POST(req: Request) {
     const personaContent = readFileSync(personaFilePath, 'utf-8');
     const { name: personaName, title: personaTitle } = parsePersonaHeader(personaContent, personaId);
 
+    // Sanitise optional focus topic (max 200 chars, no newlines)
+    const sanitisedTopic =
+      typeof focusTopic === 'string'
+        ? focusTopic.trim().slice(0, 200).replace(/\n/g, ' ') || null
+        : null;
+
     const systemPrompt =
       mode === 'practice'
         ? `You are ${personaName}, ${personaTitle} at ${config.company}.
@@ -102,7 +111,7 @@ CRITICAL INSTRUCTIONS:
 - Never break character until the user explicitly asks "How did I do?" or "Give me feedback"
 - Keep the tone professional and focused on business outcomes
 
-Begin the conversation by asking a probing interview question relevant to your top priorities as described in the Strategic Priorities section above.`
+Begin the conversation by asking a probing interview question relevant to your top priorities as described in the Strategic Priorities section above.${sanitisedTopic ? `\n\nAdditional context for this session: The candidate has requested focus on ${sanitisedTopic}. Please open with a question in this area and ensure at least 3 of your questions probe this topic specifically.` : ''}`
         : `You are an expert interview coach analyzing a practice session with ${personaName} (${personaTitle}).
 
 Review the conversation history and provide detailed, specific feedback:

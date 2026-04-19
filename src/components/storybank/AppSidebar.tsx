@@ -11,7 +11,7 @@ import {
   Sparkles,
   Target,
   GitBranch,
-  MessageCircle,
+  Mic,
   Settings2,
   ChevronLeft,
   ChevronRight,
@@ -34,7 +34,7 @@ const NAV_SECTIONS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Library',
+    label: 'BUILD',
     items: [
       { label: 'Example Bank', href: '/examples', icon: BookMarked },
       { label: 'Mirror', href: '/mirror', icon: Sparkles },
@@ -42,15 +42,15 @@ const NAV_SECTIONS: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Track',
+    label: 'APPLY',
     items: [
       { label: 'Consistency', href: '/consistency', icon: GitBranch },
     ],
   },
   {
-    label: 'Prepare',
+    label: 'PRACTISE',
     items: [
-      { label: 'Practice', href: '/practice', icon: MessageCircle },
+      { label: 'Practice', href: '/practice', icon: Mic },
     ],
   },
 ];

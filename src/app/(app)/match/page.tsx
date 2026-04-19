@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Target,
   Loader2,
@@ -227,6 +228,13 @@ function GapCard({ gap }: { gap: GapItem }) {
         {gap.requirement}
       </span>
       <span style={{ color: 'var(--sage)' }}>{gap.gap_description}</span>
+      <Link
+        href={`/practice?gap=${encodeURIComponent(gap.requirement)}`}
+        className="text-xs mt-2 inline-block"
+        style={{ color: 'var(--amber)' }}
+      >
+        Practice this gap →
+      </Link>
     </li>
   );
 }
