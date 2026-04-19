@@ -16,6 +16,7 @@ import {
   isEncryptionEnabled,
   decryptJobDescription,
   encryptResearchFields,
+  decryptResearchFields,
   decryptExampleFields,
   encryptMaterialContent,
 } from '@/lib/encryption';
@@ -425,6 +426,17 @@ async function runAssessment(
 
   let researchForPrompt: object | null = null;
   if (researchRow) {
+    const decryptedFields = isEncryptionEnabled()
+      ? decryptResearchFields({
+          recentNews: researchRow.recentNews,
+          cultureSignals: researchRow.cultureSignals,
+          keyPeople: researchRow.keyPeople,
+        })
+      : {
+          recentNews: researchRow.recentNews,
+          cultureSignals: researchRow.cultureSignals,
+          keyPeople: researchRow.keyPeople,
+        };
     researchForPrompt = {
       companySize: researchRow.companySize,
       fundingStage: researchRow.fundingStage,
@@ -433,9 +445,9 @@ async function runAssessment(
       techStack: researchRow.techStack,
       missionAndValues: researchRow.missionAndValues,
       foundedYear: researchRow.foundedYear,
-      recentNews: researchRow.recentNews,
-      cultureSignals: researchRow.cultureSignals,
-      keyPeople: researchRow.keyPeople,
+      recentNews: decryptedFields.recentNews,
+      cultureSignals: decryptedFields.cultureSignals,
+      keyPeople: decryptedFields.keyPeople,
     };
   }
 

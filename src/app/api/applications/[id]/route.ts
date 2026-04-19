@@ -6,6 +6,7 @@ import {
   isEncryptionEnabled,
   decryptJobDescription,
   decryptResearchFields,
+  decryptMaterialContent,
 } from '@/lib/encryption';
 import type { ApplicationStatus } from '@/lib/types';
 
@@ -83,11 +84,17 @@ export async function GET(
         }
       : research;
 
+    // Decrypt material content
+    const decryptedMaterials = materialRows.map(m => ({
+      ...m,
+      content: isEncryptionEnabled() ? decryptMaterialContent(m.content) : m.content,
+    }));
+
     return Response.json({
       application: decryptedApplication,
       research: decryptedResearch,
       assessment: assessmentRows[0] ?? null,
-      materials: materialRows,
+      materials: decryptedMaterials,
     });
   } catch (err) {
     console.error('GET /api/applications/[id] error:', err);
