@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
-import { transcripts, examples } from '@/lib/db/schema';
+import { transcripts, examples, consistencyEntries, exampleTags, tags } from '@/lib/db/schema';
 import { eq, and, or, isNull, count } from 'drizzle-orm';
+import { WhereFocusCard } from '@/components/storybank/WhereFocusCard';
+import { computeFocusData } from '@/lib/focus-utils';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -28,6 +30,37 @@ export default async function DashboardPage() {
     { value: String(inProgressCount?.total ?? 0), label: 'in progress' },
   ];
 
+  // ── Where to Focus logic ───────────────────────────────────────────────────
+  // Only fetch data when the user has >= 5 examples (guard at the gate).
+  const total = exampleCount?.total ?? 0;
+
+  const [consistencyRowsResult, exampleRowsResult] = total >= 5
+    ? await Promise.all([
+        db
+          .select({ topic: consistencyEntries.topic, company: consistencyEntries.company })
+          .from(consistencyEntries)
+          .where(eq(consistencyEntries.userId, userId)),
+        db
+          .select({
+            exampleId: examples.id,
+            qualityRating: examples.qualityRating,
+            tagName: tags.name,
+          })
+          .from(examples)
+          .innerJoin(exampleTags, eq(examples.id, exampleTags.exampleId))
+          .innerJoin(tags, eq(exampleTags.tagId, tags.id))
+          .where(
+            and(
+              eq(examples.userId, userId),
+              eq(tags.isSystem, true),
+              isNull(tags.userId)
+            )
+          ),
+      ])
+    : [[], []];
+
+  const focusData = computeFocusData(total, consistencyRowsResult, exampleRowsResult);
+
   return (
     <div className="max-w-4xl">
       {/* Header */}
@@ -36,7 +69,7 @@ export default async function DashboardPage() {
           className="font-heading text-3xl font-bold mb-1"
           style={{ color: 'var(--mist)', letterSpacing: '-0.01em' }}
         >
-          Welcome to StoryBank
+          {session.user.name ? `Welcome back, ${session.user.name.split(' ')[0]}` : 'Welcome to StoryBank'}
         </h1>
         <p className="text-sm" style={{ color: 'var(--sage)' }}>
           Your career story, organised.
@@ -62,6 +95,24 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Where to Focus — only if user has enough data */}
+      {focusData && (
+        <div className="mb-8">
+          <h2
+            className="font-heading text-base font-semibold mb-3"
+            style={{ color: 'var(--mist)', letterSpacing: '-0.01em' }}
+          >
+            Where to focus
+          </h2>
+          <WhereFocusCard
+            type={focusData.type}
+            category={focusData.category}
+            detail={focusData.detail}
+            href={focusData.href}
+          />
+        </div>
+      )}
 
       {/* Quick actions */}
       <h2

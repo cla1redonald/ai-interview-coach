@@ -3,6 +3,7 @@ import { db } from '@/lib/db/index';
 import { transcripts, examples, tags, exampleTags, consistencyEntries } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { decryptTranscriptFields, decryptExampleFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { generateBatchEmbeddings, formatExampleForEmbedding } from '@/lib/embeddings/openai';
 import { upsertExampleVector } from '@/lib/vector/upstash';
 import {
@@ -68,6 +69,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 5)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
 
   let body: unknown;
   try {

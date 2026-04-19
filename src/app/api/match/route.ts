@@ -6,6 +6,7 @@ import { generateEmbedding } from '@/lib/embeddings/openai';
 import { queryUserVectors } from '@/lib/vector/upstash';
 import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import { callWithTool } from '@/lib/ai/call-with-tool';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   MATCHING_SYSTEM,
   buildExplanationUserMessage,
@@ -31,6 +32,13 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
 
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 10)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -43,6 +51,10 @@ export async function POST(request: Request) {
 
   if (!jobSpec) {
     return Response.json({ error: 'job_spec is required' }, { status: 400 });
+  }
+
+  if (jobSpec.length > 5000) {
+    return Response.json({ error: 'Job spec too long (max 5,000 characters)' }, { status: 400 });
   }
 
   const matchCount = Math.min(

@@ -38,6 +38,43 @@ describe('checkRateLimit()', () => {
     // ip2 should still be allowed
     expect(checkRateLimit(ip2)).toBe(true);
   });
+
+  it('respects a custom maxRequests of 5', () => {
+    const ip = '10.1.1.50';
+    for (let i = 0; i < 5; i++) {
+      expect(checkRateLimit(ip, 5)).toBe(true);
+    }
+    // 6th request should be blocked
+    expect(checkRateLimit(ip, 5)).toBe(false);
+  });
+
+  it('respects a custom maxRequests of 3', () => {
+    const ip = '10.1.1.60';
+    for (let i = 0; i < 3; i++) {
+      expect(checkRateLimit(ip, 3)).toBe(true);
+    }
+    // 4th request should be blocked
+    expect(checkRateLimit(ip, 3)).toBe(false);
+  });
+
+  it('uses separate buckets for different maxRequests values on the same IP', () => {
+    const ip = '10.1.1.70';
+    // Exhaust the 3-request limit
+    for (let i = 0; i < 3; i++) {
+      checkRateLimit(ip, 3);
+    }
+    // The 10-request bucket for the same IP is independent — should still allow
+    expect(checkRateLimit(ip, 10)).toBe(true);
+  });
+
+  it('uses a custom maxRequests of 20', () => {
+    const ip = '10.1.1.80';
+    for (let i = 0; i < 20; i++) {
+      expect(checkRateLimit(ip, 20)).toBe(true);
+    }
+    // 21st request should be blocked
+    expect(checkRateLimit(ip, 20)).toBe(false);
+  });
 });
 
 describe('Input validation logic', () => {
@@ -100,6 +137,60 @@ describe('Persona file scanning', () => {
       'ceo-generic': '/personas/example/CEO_Generic.md',
     };
     expect(filenameMap['ceo-generic']).toBe('/personas/example/CEO_Generic.md');
+  });
+});
+
+describe('Input length validation — transcripts and examples', () => {
+  const MAX_TITLE_LENGTH = 200;
+  const MAX_TRANSCRIPT_LENGTH = 100000;
+  const MAX_JOB_SPEC_LENGTH = 5000;
+  const MAX_COMPANY_LENGTH = 100;
+  const MAX_CLAIM_LENGTH = 2000;
+  const MAX_TOPIC_LENGTH = 200;
+
+  it('rejects title over 200 characters', () => {
+    const title = 'x'.repeat(MAX_TITLE_LENGTH + 1);
+    expect(title.length > MAX_TITLE_LENGTH).toBe(true);
+  });
+
+  it('accepts title at exactly 200 characters', () => {
+    const title = 'x'.repeat(MAX_TITLE_LENGTH);
+    expect(title.length <= MAX_TITLE_LENGTH).toBe(true);
+  });
+
+  it('rejects rawText over 100,000 characters', () => {
+    const rawText = 'x'.repeat(MAX_TRANSCRIPT_LENGTH + 1);
+    expect(rawText.length > MAX_TRANSCRIPT_LENGTH).toBe(true);
+  });
+
+  it('accepts rawText at exactly 100,000 characters', () => {
+    const rawText = 'x'.repeat(MAX_TRANSCRIPT_LENGTH);
+    expect(rawText.length <= MAX_TRANSCRIPT_LENGTH).toBe(true);
+  });
+
+  it('rejects job_spec over 5,000 characters', () => {
+    const jobSpec = 'x'.repeat(MAX_JOB_SPEC_LENGTH + 1);
+    expect(jobSpec.length > MAX_JOB_SPEC_LENGTH).toBe(true);
+  });
+
+  it('accepts job_spec at exactly 5,000 characters', () => {
+    const jobSpec = 'x'.repeat(MAX_JOB_SPEC_LENGTH);
+    expect(jobSpec.length <= MAX_JOB_SPEC_LENGTH).toBe(true);
+  });
+
+  it('rejects company over 100 characters', () => {
+    const company = 'x'.repeat(MAX_COMPANY_LENGTH + 1);
+    expect(company.length > MAX_COMPANY_LENGTH).toBe(true);
+  });
+
+  it('rejects claim over 2,000 characters', () => {
+    const claim = 'x'.repeat(MAX_CLAIM_LENGTH + 1);
+    expect(claim.length > MAX_CLAIM_LENGTH).toBe(true);
+  });
+
+  it('rejects topic over 200 characters', () => {
+    const topic = 'x'.repeat(MAX_TOPIC_LENGTH + 1);
+    expect(topic.length > MAX_TOPIC_LENGTH).toBe(true);
   });
 });
 

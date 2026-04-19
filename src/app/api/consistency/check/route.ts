@@ -4,6 +4,7 @@ import { consistencyEntries } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const VALID_TOPICS = ['compensation', 'leaving_reason', 'start_date', 'role_scope'] as const;
 type ConsistencyTopic = typeof VALID_TOPICS[number];
@@ -97,12 +98,19 @@ If there is no genuine contradiction, respond with: NO CONTRADICTION`;
 }
 
 // POST /api/consistency/check — run contradiction detection across all user entries
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 5)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
 
   try {
     const rows = await db

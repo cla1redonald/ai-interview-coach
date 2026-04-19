@@ -3,6 +3,7 @@ import { db } from '@/lib/db/index';
 import { transcripts } from '@/lib/db/schema';
 import { eq, and, like, desc, count } from 'drizzle-orm';
 import { encryptTranscriptFields, decryptTranscriptFields, isEncryptionEnabled } from '@/lib/encryption';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const VALID_ROUNDS = ['screening', 'first', 'second', 'final', 'other'] as const;
 type InterviewRound = typeof VALID_ROUNDS[number];
@@ -62,6 +63,13 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
 
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 10)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -76,8 +84,14 @@ export async function POST(request: Request) {
   if (!title) {
     return Response.json({ error: 'title is required' }, { status: 400 });
   }
+  if (title.length > 200) {
+    return Response.json({ error: 'Title too long (max 200 characters)' }, { status: 400 });
+  }
   if (!rawText || rawText.length < 10) {
     return Response.json({ error: 'rawText must be at least 10 characters' }, { status: 400 });
+  }
+  if (rawText.length > 100000) {
+    return Response.json({ error: 'Transcript too long (max 100,000 characters)' }, { status: 400 });
   }
 
   const interviewRound = typeof b.interviewRound === 'string' ? b.interviewRound : null;

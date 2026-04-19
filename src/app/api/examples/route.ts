@@ -3,6 +3,7 @@ import { db } from '@/lib/db/index';
 import { examples, exampleTags, tags, transcripts } from '@/lib/db/schema';
 import { eq, and, like, desc, inArray, or, isNull } from 'drizzle-orm';
 import { decryptExampleFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // GET /api/examples — list user's examples with optional filtering + joined tags
 export async function GET(request: Request) {
@@ -161,6 +162,13 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
 
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 20)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
+
   try {
     const body = await request.json();
     const { question, answer, transcriptId, qualityRating, tagIds } = body as {
@@ -244,6 +252,18 @@ export async function POST(request: Request) {
           }).onConflictDoNothing();
         }
       }
+    }
+
+    // Generate embedding for search (non-blocking — don't fail the request)
+    try {
+      const { formatExampleForEmbedding, generateEmbedding } = await import('@/lib/embeddings/openai');
+      const { upsertExampleVector } = await import('@/lib/vector/upstash');
+      const embeddingText = formatExampleForEmbedding(question.trim(), answer.trim());
+      const vector = await generateEmbedding(embeddingText);
+      await upsertExampleVector(created.id, userId, vector);
+    } catch (embeddingErr) {
+      console.warn(`Embedding generation failed for example ${created.id}:`, embeddingErr);
+      // Don't fail the request — backfill can catch this later
     }
 
     return Response.json({ example: created }, { status: 201 });

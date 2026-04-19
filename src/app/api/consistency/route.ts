@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/index';
 import { consistencyEntries } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const VALID_TOPICS = ['compensation', 'leaving_reason', 'start_date', 'role_scope'] as const;
 type ConsistencyTopic = typeof VALID_TOPICS[number];
@@ -50,6 +51,13 @@ export async function POST(request: Request) {
   }
   const userId = session.user.id;
 
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 5)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -66,8 +74,17 @@ export async function POST(request: Request) {
   if (!company) {
     return Response.json({ error: 'company is required' }, { status: 400 });
   }
+  if (company.length > 100) {
+    return Response.json({ error: 'Company name too long (max 100 characters)' }, { status: 400 });
+  }
   if (!claim) {
     return Response.json({ error: 'claim is required' }, { status: 400 });
+  }
+  if (claim.length > 2000) {
+    return Response.json({ error: 'Claim too long (max 2,000 characters)' }, { status: 400 });
+  }
+  if (topic.length > 200) {
+    return Response.json({ error: 'Topic too long (max 200 characters)' }, { status: 400 });
   }
   if (!VALID_TOPICS.includes(topic as ConsistencyTopic)) {
     return Response.json(

@@ -3,16 +3,18 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 export const RATE_LIMIT_WINDOW = 60000; // 1 minute in ms
 export const RATE_LIMIT_MAX_REQUESTS = 10;
 
-export function checkRateLimit(ip: string): boolean {
+export function checkRateLimit(ip: string, maxRequests: number = RATE_LIMIT_MAX_REQUESTS): boolean {
   const now = Date.now();
-  const userLimit = rateLimitMap.get(ip);
+  // Use a per-(ip, maxRequests) key so different limits don't share the same bucket
+  const key = `${ip}:${maxRequests}`;
+  const userLimit = rateLimitMap.get(key);
 
   if (!userLimit || now > userLimit.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
     return true;
   }
 
-  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+  if (userLimit.count >= maxRequests) {
     return false;
   }
 

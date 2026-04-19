@@ -4,6 +4,7 @@ import { transcripts, examples } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { decryptTranscriptFields, encryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
 import { callWithTool } from '@/lib/ai/call-with-tool';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   EXTRACTION_PASS1_SYSTEM,
   EXTRACTION_PASS1_SCHEMA,
@@ -29,6 +30,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 5)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
 
   let body: unknown;
   try {
@@ -62,6 +70,10 @@ export async function POST(request: Request) {
   const decryptedTranscript = isEncryptionEnabled()
     ? { ...transcript, ...decryptTranscriptFields({ rawText: transcript.rawText }) }
     : transcript;
+
+  if (decryptedTranscript.rawText.length > 100000) {
+    return Response.json({ error: 'Transcript too long (max 100,000 characters)' }, { status: 400 });
+  }
 
   // Check if already extracted
   if (decryptedTranscript.extractedAt && !force) {

@@ -6,6 +6,7 @@ import { batchFetchVectors } from '@/lib/vector/upstash';
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { decryptExampleFields, isEncryptionEnabled } from '@/lib/encryption';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const MIN_EXAMPLES = 5;
 const COSINE_DISTANCE_THRESHOLD = 0.25; // cluster if cosine similarity > 0.75
@@ -325,12 +326,19 @@ Output one insight per line, in the same order as the categories.`;
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  if (!checkRateLimit(ip, 3)) {
+    return Response.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+  }
 
   // 1. Load all user examples + tags
   const rawExamples = await db.select().from(examples).where(eq(examples.userId, userId));
