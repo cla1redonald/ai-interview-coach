@@ -174,6 +174,74 @@ export function decryptExampleFields(fields: {
   };
 }
 
+// ─── Phase 2: Job application field wrappers ─────────────────────────────────
+
+export interface EncryptedJobDescriptionFields {
+  jobDescription: string; // base64-encoded JSON of EncryptedValue
+}
+
+export interface EncryptedResearchFields {
+  recentNews: string | null;
+  cultureSignals: string | null;
+  keyPeople: string | null;
+}
+
+/**
+ * Encrypt the jobDescription field of a job application before writing to DB.
+ * No-op (returns input unchanged) if ENCRYPTION_KEY is not set.
+ */
+export function encryptJobDescription(fields: {
+  jobDescription: string;
+}): EncryptedJobDescriptionFields {
+  return {
+    jobDescription: serialise(encrypt(fields.jobDescription)),
+  };
+}
+
+/**
+ * Decrypt the jobDescription field after reading from DB.
+ * No-op (returns input unchanged) if ENCRYPTION_KEY is not set.
+ */
+export function decryptJobDescription(fields: {
+  jobDescription: string;
+}): { jobDescription: string } {
+  return {
+    jobDescription: decrypt(deserialise(fields.jobDescription)),
+  };
+}
+
+/**
+ * Encrypt sensitive company research fields before writing to DB.
+ * Only encrypts non-null fields. No-op if ENCRYPTION_KEY is not set.
+ */
+export function encryptResearchFields(fields: {
+  recentNews: string | null;
+  cultureSignals: string | null;
+  keyPeople: string | null;
+}): EncryptedResearchFields {
+  return {
+    recentNews: fields.recentNews !== null ? serialise(encrypt(fields.recentNews)) : null,
+    cultureSignals: fields.cultureSignals !== null ? serialise(encrypt(fields.cultureSignals)) : null,
+    keyPeople: fields.keyPeople !== null ? serialise(encrypt(fields.keyPeople)) : null,
+  };
+}
+
+/**
+ * Decrypt sensitive company research fields after reading from DB.
+ * Only decrypts non-null fields. No-op if ENCRYPTION_KEY is not set.
+ */
+export function decryptResearchFields(fields: {
+  recentNews: string | null;
+  cultureSignals: string | null;
+  keyPeople: string | null;
+}): EncryptedResearchFields {
+  return {
+    recentNews: fields.recentNews !== null ? decrypt(deserialise(fields.recentNews)) : null,
+    cultureSignals: fields.cultureSignals !== null ? decrypt(deserialise(fields.cultureSignals)) : null,
+    keyPeople: fields.keyPeople !== null ? decrypt(deserialise(fields.keyPeople)) : null,
+  };
+}
+
 // ─── Encryption guard ─────────────────────────────────────────────────────────
 
 /**
