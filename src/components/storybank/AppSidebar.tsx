@@ -11,6 +11,10 @@ import {
   Sparkles,
   Target,
   GitBranch,
+  Globe,
+  BarChart3,
+  FileOutput,
+  Layers,
   Mic,
   Settings2,
   ChevronLeft,
@@ -38,12 +42,16 @@ const NAV_SECTIONS: { label?: string; items: NavItem[] }[] = [
     items: [
       { label: 'Example Bank', href: '/examples', icon: BookMarked },
       { label: 'Mirror', href: '/mirror', icon: Sparkles },
-      { label: 'Job Match', href: '/match', icon: Target },
     ],
   },
   {
     label: 'APPLY',
     items: [
+      { label: 'Job Match', href: '/match', icon: Target },
+      { label: 'Research', href: '/research', icon: Globe },
+      { label: 'Fit', href: '/fit', icon: BarChart3 },
+      { label: 'Materials', href: '/materials', icon: FileOutput },
+      { label: 'Batch', href: '/batch', icon: Layers },
       { label: 'Consistency', href: '/consistency', icon: GitBranch },
     ],
   },
