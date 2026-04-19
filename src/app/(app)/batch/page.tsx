@@ -64,7 +64,7 @@ function newRow(): JobRow {
  *   ## [Job Title] — [Company Name]
  *   [URL or pasted JD]
  */
-export function serializeRowsToMarkdown(rows: JobRow[]): string {
+function serializeRowsToMarkdown(rows: JobRow[]): string {
   return rows
     .filter((r) => r.jobTitle.trim())
     .map((r) => {

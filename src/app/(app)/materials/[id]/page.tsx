@@ -230,7 +230,6 @@ export default function MaterialsDetailPage({
     );
   }
 
-  const activeMaterial = materials.find((m) => m.type === activeTab) ?? null;
   const isGeneratingActive = generating === activeTab;
 
   return (
