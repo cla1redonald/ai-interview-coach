@@ -41,3 +41,29 @@
 **Action:** Before implementing any schema: read the "Design Principles" or "Key Decisions" section of the architecture spec end-to-end. Pay special attention to: timestamp format, ID generation strategy, nullable vs. required fields, and any field that says "NOT [the default]."
 
 **Source:** StoryBank Phase 1 / 2026-04-18
+
+---
+
+## Double-Click Guard on Async Save Buttons
+
+**Context:** Building a UI button that triggers one or more async API calls (save, submit, delete).
+
+**Learning:** The SaveToBankModal fires N sequential POST calls when the user clicks save. React's `useState` setter is async -- checking `if (saving) return` at the top of the handler does not prevent double-clicks because the state update has not rendered by the time the second click fires. The second invocation sees `saving === false` and enters the handler, duplicating all API calls.
+
+**Action:** Use a `useRef` guard alongside the `useState` flag:
+```typescript
+const savingRef = useRef(false);
+const [saving, setSaving] = useState(false);
+
+const handleSave = async () => {
+  if (savingRef.current) return;  // synchronous check blocks second click
+  savingRef.current = true;
+  setSaving(true);               // triggers re-render for UI feedback
+  // ... perform async work ...
+  savingRef.current = false;
+  setSaving(false);
+};
+```
+Apply this pattern to every button that triggers an async server call. The ref provides synchronous blocking; the state provides UI feedback (disabled styling, "Saving..." text).
+
+**Source:** StoryBank Unified Experience / 2026-04-19 -- SaveToBankModal double-click race condition

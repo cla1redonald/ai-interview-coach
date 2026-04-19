@@ -59,3 +59,19 @@
 Flag any unvalidated string interpolation into a service query as P0.
 
 **Source:** StoryBank Phase 1 / 2026-04-18
+
+---
+
+## Audit Existing Code When Modifying a File
+
+**Context:** Reviewing changes to an existing file where the engineer added new functionality.
+
+**Learning:** In the StoryBank Unified Experience build, the engineer added `focusTopic` parsing and sanitisation to `/api/chat/route.ts`. The new code was correct and well-secured. But the existing code in the same file did not validate `msg.role` -- a client could inject `{ role: "system" }` messages into the LLM call. This was a P0 prompt injection vector that had existed since Phase 1 but was only caught when the reviewer audited the whole file during the UE review.
+
+**Action:** When reviewing changes to an existing file:
+1. Do not limit review to the diff. Read the entire route handler or component.
+2. For API routes: verify that ALL input fields are validated, not just the newly added ones.
+3. For chat/LLM routes specifically: check that `msg.role` is validated against an allowlist (`['user', 'assistant']`).
+4. Apply the question: "If I were writing this file from scratch today with current security knowledge, what would I do differently?" Any gap between that answer and the current code is a finding.
+
+**Source:** StoryBank Unified Experience / 2026-04-19 -- P0 prompt injection in existing /api/chat code discovered during review of focusTopic additions

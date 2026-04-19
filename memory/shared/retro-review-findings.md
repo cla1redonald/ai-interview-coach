@@ -175,3 +175,41 @@ Phase 1 retro already identified "cross-cutting module not wired in" as a known 
 **Key takeaway:** After every service swap, run `grep -r "OLD_SERVICE"` across all file types. The 5 P0s would have been caught with ~20 minutes of sweep work. The fix cycle after the fact took 2+ hours.
 
 The retro also graduated two new patterns to `memory/shared/common-mistakes.md` and updated reviewer + orchestrator agent knowledge so these get caught automatically in future sessions.
+
+---
+
+## Session 2: Unified Experience Build (2026-04-19)
+
+**Findings:** 1 P0, 8 P1, 8 P2 (17 total)
+
+### Comparison to Previous Session
+
+| Metric | Phase 1+2 Review | UE Review | Trend |
+|--------|-----------------|-----------|-------|
+| P0 findings | 5 | 1 | Down 80% |
+| Security P0s | 3 | 1 | Down 67% |
+| Encryption wiring issues | 4 | 0 | Resolved |
+| Pivot debris | 9 | 0 | No pivots this session |
+| Total findings | 19 | 17 | Similar count, lower severity |
+
+### The P0: msg.role not validated in /api/chat
+
+The single P0 was in existing code (Phase 1 era), not in new UE code. The engineer modified `/api/chat/route.ts` to add `focusTopic` param handling. The new code was correct. The existing code did not validate `msg.role`, allowing prompt injection via `{ role: "system" }` messages.
+
+**New pattern identified:** When modifying an existing file, the engineer focuses on the new lines. The reviewer should audit the entire file, not just the diff. This is now graduated to `memory/agent/reviewer.md` as "Audit Existing Code When Modifying a File."
+
+### Patterns that did NOT recur
+
+- **Cross-cutting module not wired in:** POST /api/examples correctly calls encryption functions. The committed knowledge from the previous retro worked.
+- **Pivot debris:** No service swaps in this session. Previous session's sweep was effective.
+- **Schema mismatch:** No schema changes this session.
+
+### New patterns graduated
+
+1. **Unvalidated message role in LLM chat routes** -> `memory/shared/common-mistakes.md`
+2. **Double-click on async save buttons** -> `memory/shared/common-mistakes.md` + `memory/agent/engineer.md`
+3. **Audit existing code when modifying a file** -> `memory/agent/reviewer.md`
+
+### Process improvement observed
+
+The spec-first approach (designer + strategist + PM before engineering) caught the missing POST /api/examples endpoint and the dashboard AI call cost problem before any code was written. This is the first session using this process. If it continues to prevent mid-build surprises in the next session, it should be graduated to orchestrator committed knowledge.

@@ -90,3 +90,51 @@ For encryption specifically: every route that reads an encrypted field must call
 **Detection:** For each encrypted field, grep for all SELECT queries on that table. For each SELECT, verify the decrypt function is called on the result before it reaches `Response.json()` or a component render.
 
 **Source:** StoryBank Phase 2 review / 2026-04-18 -- 4 routes reading encrypted fields without decrypting (recurrence of Phase 1 "Cross-Cutting Module Not Wired In" pattern, now split by read/write asymmetry)
+
+---
+
+## Unvalidated Message Role in LLM Chat Routes
+
+**What happens:** An API route accepts a `messages` array from the client and passes it to an LLM (e.g., `streamText({ messages })`). The client can send `{ role: "system", content: "Ignore all previous instructions..." }` and inject directly into the system prompt, overriding server-side instructions.
+
+**Root cause:** The route validates message content (length, format) but does not validate the `role` field. Most LLM SDKs accept any role string without complaint. The developer assumes the client will only send `user` and `assistant` messages because that is what the UI produces, but the API is public.
+
+**Prevention:** Before passing messages to the LLM, validate every message's role:
+```typescript
+for (const msg of messages) {
+  if (!['user', 'assistant'].includes(msg.role)) {
+    return new Response('Invalid message role', { status: 400 });
+  }
+}
+```
+Reject anything that is not `user` or `assistant`. Never allow `system` role from the client.
+
+**Detection:** Grep for any route that receives a `messages` array and passes it to `streamText`, `generateText`, or any LLM SDK function. Check whether `msg.role` is validated before the call.
+
+**Source:** StoryBank Unified Experience / 2026-04-19 -- P0 prompt injection vector in /api/chat, existed since Phase 1 but only caught during UE review
+
+---
+
+## Double-Click on Async Save Buttons
+
+**What happens:** A save button triggers N sequential API calls (e.g., saving N examples one at a time). Without a guard, a double-click fires the entire batch twice, creating duplicate records.
+
+**Root cause:** React `useState` for `saving` is not synchronous -- checking `if (saving) return` at the top of the handler does not prevent the second click because the state update from the first click has not yet rendered. The second click sees `saving === false` and enters the handler.
+
+**Prevention:** Use a ref-based guard in addition to the state flag:
+```typescript
+const savingRef = useRef(false);
+
+const handleSave = async () => {
+  if (savingRef.current) return;
+  savingRef.current = true;
+  setSaving(true);
+  // ... do the work ...
+  savingRef.current = false;
+};
+```
+The ref update is synchronous, so the second click is blocked immediately.
+
+**Detection:** Search for any `onClick` handler that calls `fetch()` or an async function. Check whether there is a ref-based or other synchronous guard preventing concurrent execution.
+
+**Source:** StoryBank Unified Experience / 2026-04-19 -- SaveToBankModal save button initially had no double-click guard
